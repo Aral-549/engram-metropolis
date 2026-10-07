@@ -72,8 +72,9 @@ The tool descriptions tell the model that recalled text is data, not instruction
   allow (Chrome local network permission) instead of failing silently.
 - **Spike result (2026-10-08):** Chromium 152 and 153 block an https page's `ws://127.0.0.1` connection by default
   (`ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS`); with the `local-network-access` permission granted, it connects and
-  round-trips. In a normal browser that is a one-time permission prompt for the vault site. Firefox and Safari were
-  not testable on this machine: untested. If either cannot connect at all, the fallback is a hosted relay that
+  round-trips. In a normal browser that is a one-time permission prompt for the vault site. Firefox 155 (tested 2026-10-08)
+  gates it the same way: the request waits on a local-network permission prompt and connects once allowed (with
+  `network.lna.enabled=false` it connects at once). Safari: not testable on this machine, untested. If either cannot connect at all, the fallback is a hosted relay that
   forwards ciphertext only (key derived from the token), with an amendment to this contract first.
 
 ## Link protocol (JSON text frames, at most 64 KB each)

@@ -51,8 +51,12 @@ function Link() {
     const hs = vaultHandshake(p.token);
     let verified = false;
     let welcomed = false;
+    // Firefox waits silently while its local-network prompt is open: after 10 s, show how to allow it (still waiting).
+    const slow = setTimeout(() => !opened && setConn("blocked"), 10_000);
     ws.onopen = () => {
       opened = true;
+      clearTimeout(slow);
+      setConn((c) => (c === "blocked" ? "connecting" : c));
       ws.send(JSON.stringify(hs.hello));
     };
     ws.onerror = () => !opened && setConn("blocked");
@@ -95,7 +99,10 @@ function Link() {
           : `Asked "${String(m.args?.query ?? "").slice(0, 60)}": shared ${r.result?.entries?.length ?? 0}`;
       setActivity((a) => [{ key: seq.current++, text, tone: (!r.ok ? "error" : m.op === "remember" ? "write" : "read") as Activity["tone"] }, ...a].slice(0, 8));
     };
-    return () => ws.close();
+    return () => {
+      clearTimeout(slow);
+      ws.close();
+    };
   }, [p]);
 
   // Is Engram Desktop already approved for this link's origin?
@@ -143,8 +150,8 @@ function Link() {
       ) : null}
       {conn === "blocked" ? (
         <p role="alert" className="mt-4 rounded-sm border border-rust/40 bg-rust-soft px-3 py-2 text-sm text-rust">
-          Your browser blocked the connection to engram-mcp. Check that it is running, then allow local network access for this site (Chrome asks once; if
-          you said no, use the icon at the left of the address bar) and reload this page.
+          Your browser is holding the connection to engram-mcp. Check that it is running, then allow local network access for this site (Chrome and
+          Firefox ask once; if you said no, use the icon at the left of the address bar) and reload this page.
         </p>
       ) : null}
 

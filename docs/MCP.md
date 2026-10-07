@@ -40,8 +40,8 @@ Add to `claude_desktop_config.json` (Claude Desktop) or `.cursor/mcp.json` (Curs
 
 1. Start your AI tool. `engram-mcp` prints a link to its log (stderr):
    `<vault url>/link?port=7457&agent=<id>#token=...`. Your tool's `vault_status` tool also returns it.
-2. Open the link in your browser. Chrome asks once to allow access to your local network: allow it (that is how
-   the vault tab reaches `engram-mcp` on `127.0.0.1`).
+2. Open the link in your browser. Chrome and Firefox ask once to allow access to your local network: allow it
+   (that is how the vault tab reaches `engram-mcp` on `127.0.0.1`).
 3. Unlock your vault with your passkey, pick the topics your tool may ask about, and approve.
 4. Keep the tab open while you work. Each request shows up in the tab and in your vault's read log.
 
@@ -59,4 +59,4 @@ Add to `claude_desktop_config.json` (Claude Desktop) or `.cursor/mcp.json` (Curs
   never sent over the connection (BUGLOG MC-1). Another program on the port, or another website, gets nothing.
 - What your vault shares goes into your AI tool's context, so its provider sees it. Engram limits and logs what is
   shared; it cannot make a provider forget it.
-- Tested in Chromium 152 and 153. Firefox and Safari are not tested yet.
+- Tested in Chromium 152 and 153 and Firefox 155. Safari is not tested yet.
