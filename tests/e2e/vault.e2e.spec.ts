@@ -1,4 +1,4 @@
-// End-to-end: onboarding -> first memory -> stateless unlock -> consent grant -> revoke, against Monad testnet.
+// End-to-end: onboarding -> first memory -> stateless unlock -> stay signed in -> consent grant -> revoke, on Monad testnet.
 // Covers contracts/apps.md cases 1, 5, 7 and the Mera UX bounty checks (one ceremony, time to first tx, stateless test).
 import { expect, test, type Page } from "@playwright/test";
 
@@ -43,17 +43,22 @@ test("passkey vault end to end on Monad testnet", async ({ page }) => {
   await expect(page.locator("aside a").first()).toHaveText(owner);
   await expect(page.locator("ul li", { hasText: memory })).toBeVisible();
 
+  // 2b. Stay signed in (contracts/simple-flow.md C7): a plain reload reopens the vault with no prompt.
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "What your AI knows about you" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("aside a").first()).toHaveText(owner);
+
   // 3. Consent: an app asks agent 1961 for read access to "preferences".
   await page.goto(`/connect?v=1&agentId=1961&labels=preferences&scope=read&expiresInSec=3600&origin=${encodeURIComponent("http://127.0.0.1:3100")}`);
   await expect(page.getByText("wants to read part of your memory")).toBeVisible();
   await expect(page.getByText("not listed by this agent")).toBeVisible();
   await expect(page.getByText("Read only")).toBeVisible();
-  await page.getByRole("button", { name: "Unlock and approve" }).click();
+  // The popup opens already unlocked from this device's store; Approve still asks for the passkey (C17).
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Access granted" })).toBeVisible({ timeout: 90_000 });
 
-  // 4. Revoke from the vault.
+  // 4. Revoke from the vault (still signed in, no unlock step).
   await page.goto("/");
-  await page.getByRole("button", { name: "I already have one, unlock it" }).click();
   await page.getByRole("button", { name: "Who can read it" }).click();
   const row = page.locator("li", { hasText: "Agent #1961" });
   await expect(row).toBeVisible();

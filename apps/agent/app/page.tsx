@@ -7,16 +7,36 @@ import { Monogram } from "@/components/Monogram";
 import { Seal } from "@/components/Seal";
 import { Words } from "@/components/Words";
 
-type Msg = { role: "user" | "assistant"; content: string; saved?: { text: string; txHash?: string }[] };
+type Unsaved = { kind: "fact" | "preference" | "note"; text: string };
+type Msg = { role: "user" | "assistant"; content: string; saved?: { text: string; txHash?: string }[]; unsaved?: string[] };
 const P = persona(process.env.NEXT_PUBLIC_AGENT_PERSONA);
 const VAULT = process.env.NEXT_PUBLIC_VAULT_URL ?? "http://localhost:3100";
 const AGENT_ID = BigInt(process.env.NEXT_PUBLIC_AGENT_ID ?? "0");
 const EXPLORER = "https://testnet.monadvision.com/tx/";
 const FLAG = `engram-connected-${P.id}`; // UI convenience only; the httpOnly cookie is the real session
+// Chat first (contracts/simple-flow.md A, B2): the conversation and memories waiting for a vault live in this tab only
+// (sessionStorage): a refresh keeps them, closing the tab deletes them.
+const CHAT_KEY = `engram-chat-${P.id}`;
+const UNSAVED_KEY = `engram-unsaved-${P.id}`;
+const load = <T,>(k: string, fallback: T): T => {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(k) ?? "null") as T | null;
+    return v ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+const store = (k: string, v: unknown) => {
+  try {
+    sessionStorage.setItem(k, JSON.stringify(v));
+  } catch {
+    /* storage blocked or full: the chat still works for this visit */
+  }
+};
 // Disclosure mode (default): this page never gets a key. It asks the user's vault, framed below, for each answer.
 const MODE: "disclosure" | "offline" = process.env.NEXT_PUBLIC_AGENT_MODE === "offline" ? "offline" : "disclosure";
 type Pending = { id: string; tool: "recall" | "remember"; args: Record<string, unknown> };
-type ChatReply = { reply?: string; saved?: { text: string; txHash?: string }[]; accessRevoked?: boolean; message?: string; code?: string; pending?: Pending; continuation?: string };
+type ChatReply = { reply?: string; saved?: { text: string; txHash?: string }[]; accessRevoked?: boolean; message?: string; code?: string; pending?: Pending; continuation?: string; memory?: "off" };
 const post = (url: string, body: unknown) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 export default function Page() {
@@ -26,6 +46,10 @@ export default function Page() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [revoked, setRevoked] = useState(false);
+  // The vault strip is mounted while connecting too, so the connect popup can unlock it directly (simple-flow.md C).
+  const [connecting, setConnecting] = useState(false);
+  const [unsaved, setUnsaved] = useState<Unsaved[]>([]);
+  const unsavedRef = useRef<Unsaved[]>([]);
   const end = useRef<HTMLDivElement>(null);
   const bridgeMount = useRef<HTMLDivElement>(null);
   const bridge = useRef<VaultBridge | null>(null);
@@ -36,7 +60,53 @@ export default function Page() {
     } catch {
       /* storage blocked: start disconnected */
     }
+    // Restore the conversation and anything waiting to be saved (simple-flow.md C3).
+    setMessages(load<Msg[]>(CHAT_KEY, []).slice(-50));
+    setUnsavedList(load<Unsaved[]>(UNSAVED_KEY, []));
   }, []);
+  useEffect(() => {
+    if (messages.length) store(CHAT_KEY, messages.slice(-50));
+  }, [messages]);
+  // Closing with memories that are not in the vault yet: the browser asks first (C40). Browsers show their own fixed
+  // text here; the banner above the input says what is at stake before that.
+  useEffect(() => {
+    if (!unsaved.length) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsaved.length]);
+
+  function setUnsavedList(list: Unsaved[]) {
+    unsavedRef.current = list;
+    setUnsaved(list);
+    store(UNSAVED_KEY, list);
+  }
+
+  /** Sends memories that waited for a vault through the bridge, oldest first; keeps whatever fails (C5). */
+  async function flushUnsaved() {
+    if (MODE !== "disclosure" || !bridge.current) return;
+    for (const item of [...unsavedRef.current]) {
+      try {
+        await bridge.current.propose({ kind: item.kind, text: item.text });
+        setUnsavedList(unsavedRef.current.filter((x) => x !== item));
+      } catch {
+        return; // locked or offline: try again on the next message or connect
+      }
+    }
+  }
+
+  function clearChat() {
+    setMessages([]);
+    setUnsavedList([]);
+    try {
+      sessionStorage.removeItem(CHAT_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
   // Block body on purpose: newer Chromium returns a Promise from scrollIntoView, and React must not get it as cleanup.
   // Only once there is a conversation: scrolling on mount would hide the header on phones (contracts/apps.md V12).
   useEffect(() => {
@@ -45,14 +115,15 @@ export default function Page() {
 
   // Mount the vault bridge strip once connected (contracts/disclosure.md "Bridge").
   useEffect(() => {
-    if (MODE !== "disclosure" || !connected || !bridgeMount.current) return;
+    if (MODE !== "disclosure" || !(connected || connecting) || !bridgeMount.current) return;
     const b = openVaultBridge({ vaultUrl: VAULT, agentId: AGENT_ID, mount: bridgeMount.current });
     bridge.current = b;
     return () => {
       b.close();
       bridge.current = null;
     };
-  }, [connected]);
+    // Keep one strip across connecting -> connected: remount only when it should appear or go away.
+  }, [connected || connecting]);
 
   /** Asks the vault (through the bridge) and maps its refusals onto what the server needs to know. */
   async function ask(query: string, mode: "relevant" | "full", round: number): Promise<{ entries: DisclosedEntry[]; memory: "ok" | "locked" | "revoked" | "none" }> {
@@ -66,12 +137,20 @@ export default function Page() {
   }
 
   /** Runs pending tool calls through the vault until the server has a final reply (at most 3 tool rounds). */
-  async function finish(res: Response, body: ChatReply): Promise<{ res: Response; body: ChatReply }> {
+  async function finish(res: Response, body: ChatReply, held: string[]): Promise<{ res: Response; body: ChatReply }> {
     for (let round = 1; round <= 8 && res.ok && body.pending && body.continuation; round++) {
       const p = body.pending;
       let result: Record<string, unknown>;
       try {
-        if (p.tool === "recall") {
+        if (!bridge.current) {
+          // Memory is off: keep what the agent wanted to save on this device until memory is turned on (C2).
+          if (p.tool === "remember" && typeof p.args.text === "string" && p.args.text.trim()) {
+            const kind = p.args.kind === "fact" || p.args.kind === "note" ? p.args.kind : "preference";
+            setUnsavedList([...unsavedRef.current, { kind, text: p.args.text.trim().slice(0, 500) }]);
+            held.push(p.args.text.trim().slice(0, 500));
+          }
+          result = { id: p.id, ok: false, code: "NOT_CONNECTED" };
+        } else if (p.tool === "recall") {
           const r = await bridge.current!.disclose(String(p.args.query ?? ""), { mode: p.args.mode === "full" ? "full" : "relevant", round: Math.min(round, 3) });
           result = { id: p.id, ok: true, entries: r.entries };
         } else {
@@ -98,15 +177,20 @@ export default function Page() {
 
   async function connect() {
     setNotice(null);
+    setConnecting(true);
     try {
       const r = await connectEngram({ vaultUrl: VAULT, agentId: AGENT_ID, labels: P.labels, scope: P.scope, expiresInSec: 7 * 86400, mode: MODE });
       const res = await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ proof: r.sessionProof }) });
       if (!res.ok) throw new Error("session");
       setFlag(true);
       setRevoked(false);
+      // The bridge mounts after this render; give it a moment, then save what was waiting.
+      setTimeout(() => void flushUnsaved(), 1500);
     } catch (e) {
       const code = (e as { code?: string }).code;
       setNotice(code === "USER_CANCELLED" ? "Connection cancelled. Nothing was shared." : code === "POPUP_BLOCKED" ? "Allow pop-ups for this site, then try again." : "Could not connect your memory. Try again.");
+    } finally {
+      setConnecting(false);
     }
   }
 
@@ -118,14 +202,16 @@ export default function Page() {
     setBusy(true);
     setNotice(null);
     try {
+      if (connected && unsavedRef.current.length) await flushUnsaved();
       // Disclosure mode: before the model sees anything, the vault picks what is relevant to this message.
-      const pre = MODE === "disclosure" ? await ask(text.trim(), "relevant", 0) : { entries: [], memory: "none" as const };
+      const pre = MODE === "disclosure" && connected ? await ask(text.trim(), "relevant", 0) : { entries: [], memory: "none" as const };
       const first = await post("/api/chat", {
         // The server only keeps the last 20 turns; never send more than that (long chats would hit the body cap).
         messages: next.slice(-20).map(({ role, content }) => ({ role, content: content.slice(0, 4000) })),
         ...(MODE === "disclosure" ? { disclosed: pre.entries, memory: pre.memory } : {}),
       });
-      const done = await finish(first, ((await first.json().catch(() => ({}))) ?? {}) as ChatReply);
+      const held: string[] = [];
+      const done = await finish(first, ((await first.json().catch(() => ({}))) ?? {}) as ChatReply, held);
       const res = done.res;
       const body = done.body;
       if (res.status === 401) {
@@ -134,6 +220,8 @@ export default function Page() {
         setMessages(messages);
         return;
       }
+      // The server sees no session (never connected, or it expired): show memory as off.
+      if (body.memory === "off" && connected) setFlag(false);
       if (!res.ok) {
         setNotice(body.code === "NO_GRANT" ? "Approve this agent in your vault first." : (body.message ?? "Something went wrong."));
         // Memories saved before a failure are real; show them (BUGLOG G6).
@@ -141,7 +229,7 @@ export default function Page() {
         return;
       }
       setRevoked(!!body.accessRevoked);
-      setMessages([...next, { role: "assistant", content: body.reply ?? "", saved: body.saved }]);
+      setMessages([...next, { role: "assistant", content: body.reply ?? "", saved: body.saved, ...(held.length ? { unsaved: held } : {}) }]);
     } catch {
       setNotice("Could not reach the agent. Check your connection and try again.");
     } finally {
@@ -180,10 +268,12 @@ export default function Page() {
               memory connected · {canWrite ? "can read and add" : "read only"}
             </span>
           ) : (
-            <button onClick={() => void connect()} className="btn btn-primary lift w-full justify-center px-4 py-3">Connect your memory</button>
+            <button onClick={() => void connect()} className="btn btn-primary lift w-full justify-center px-4 py-3">
+              Turn on memory{unsaved.length ? ` (${unsaved.length} waiting)` : ""}
+            </button>
           )}
         </div>
-        {MODE === "disclosure" && connected ? <div ref={bridgeMount} className="-mt-2" aria-label="Your Engram vault" /> : null}
+        {MODE === "disclosure" && (connected || connecting) ? <div ref={bridgeMount} className="-mt-2" aria-label="Your Engram vault" /> : null}
         <ul className="stagger hidden space-y-4 md:block">
           {promises.map(([k, v], i) => (
             <li key={k} className="border-l-2 border-rule pl-3 text-sm leading-relaxed text-ink-soft" style={{ ["--i" as string]: i, ["--d" as string]: "300ms" }}>
@@ -257,6 +347,18 @@ export default function Page() {
                       ))}
                     </div>
                   ) : null}
+                  {m.unsaved?.length ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {m.unsaved.map((t, k) => (
+                        <span key={`${t}-${k}`} className="inline-flex items-center rounded-sm border border-dashed border-rule px-2 py-1 font-mono text-[11px] text-ink-soft">
+                          {unsaved.some((u) => u.text === t) ? "not saved yet" : "saved"}: {t}
+                        </span>
+                      ))}
+                      {!connected ? (
+                        <button className="btn btn-primary px-2.5 py-1 text-xs" onClick={() => void connect()}>Turn on memory</button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ),
@@ -271,6 +373,16 @@ export default function Page() {
           <div ref={end} />
         </div>
 
+        {unsaved.length ? (
+          <div role="status" className="settle mb-3 flex flex-wrap items-center gap-3 rounded-sm border border-dashed border-rule px-3 py-2 text-sm">
+            <span>
+              {unsaved.length === 1 ? "1 memory isn't" : `${unsaved.length} memories aren't`} saved yet. Closing this tab deletes {unsaved.length === 1 ? "it" : "them"}.
+            </span>
+            {!connected ? (
+              <button className="btn btn-primary px-2.5 py-1 text-xs" onClick={() => void connect()}>Turn on memory</button>
+            ) : null}
+          </div>
+        ) : null}
         {notice ? <p role="alert" className="settle mb-3 text-sm text-rust">{notice}</p> : null}
         <form
           onSubmit={(e) => { e.preventDefault(); void send(input); }}
@@ -282,7 +394,7 @@ export default function Page() {
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(input); } }}
             rows={2}
             maxLength={4000}
-            placeholder={connected ? `Message ${P.name}` : "Connect your memory to start"}
+            placeholder={`Message ${P.name}`}
             aria-label={`Message ${P.name}`}
             className="flex-1 resize-none bg-transparent px-1 leading-relaxed outline-none"
           />
@@ -290,6 +402,9 @@ export default function Page() {
             Send
           </button>
         </form>
+        {messages.length ? (
+          <button className="mx-auto mt-2 block font-mono text-[11px] text-ink-soft underline" onClick={clearChat}>Clear this chat</button>
+        ) : null}
         <p className="mt-3 text-center font-mono text-[11px] text-ink-soft">
           Runs on KIMI. {P.name} only sees what your vault shares, and that goes to KIMI so it can answer you.
         </p>

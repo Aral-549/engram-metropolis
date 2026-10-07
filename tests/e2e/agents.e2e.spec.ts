@@ -1,5 +1,6 @@
-// End-to-end, Disclosure mode (contracts/disclosure.md): a new user connects Sage and Wayfarer, unlocks the vault
-// bridge inside each app, and chats. The agents never hold a key: every answer comes from the vault, through the
+// End-to-end, Disclosure mode (contracts/disclosure.md) with the chat-first flow (contracts/simple-flow.md): a new
+// user turns on memory in Sage and Wayfarer; the connect popup unlocks each app's vault strip itself (no second
+// prompt), and the strip stays unlocked across a refresh. The agents never hold a key: every answer comes from the vault, through the
 // bridge iframe, and every read is logged. Monad testnet, with the local dev model standing in for KIMI.
 // Prereqs: indexer, dev model, vault (3100), Sage (3201), Wayfarer (3202) running, AGENT_MODE=disclosure.
 // Uses a synced-passkey stand-in (tests/support/fake-passkey.ts) so popup and iframe share one passkey.
@@ -12,16 +13,17 @@ test.beforeEach(async ({ context }, info) => {
 
 async function connectAndUnlock(page: Page) {
   const popupPromise = page.waitForEvent("popup");
-  await page.getByRole("button", { name: "Connect your memory" }).click();
+  await page.getByRole("button", { name: /^Turn on memory/ }).first().click();
   const popup = await popupPromise;
   await expect(popup.getByText("wants to read part of your memory")).toBeVisible();
   await expect(popup.getByText("It never gets a key.")).toBeVisible();
   await popup.getByRole("button", { name: "New here? Create a vault and approve" }).click();
   await expect(popup.getByRole("heading", { name: "Access granted" })).toBeVisible({ timeout: 90_000 });
   await popup.waitForEvent("close", { timeout: 10_000 }).catch(() => undefined);
+  // simple-flow.md C1/F1: the popup handed its session to the strip, so there is no "Unlock memory" step.
   const strip = page.frameLocator("iframe.engram-bridge");
-  await strip.getByRole("button", { name: "Unlock memory" }).click();
   await expect(strip.getByText("sharing only what is relevant")).toBeVisible({ timeout: 60_000 });
+  await expect(strip.getByRole("button", { name: "Unlock memory" })).toHaveCount(0);
   return strip;
 }
 
@@ -29,6 +31,18 @@ test("Sage: proposals are saved by the vault, and a full read is logged", async 
   await page.goto("http://localhost:3201/");
   const strip = await connectAndUnlock(page);
   await expect(page.getByText("memory connected · can read and add")).toBeVisible();
+  // simple-flow.md C7: a refresh keeps the strip unlocked (restored from its own device store, no prompt).
+  await page.reload();
+  await expect(page.frameLocator("iframe.engram-bridge").getByText("sharing only what is relevant")).toBeVisible({ timeout: 60_000 });
+  // simple-flow.md B2 C36/C37: a new tab keeps nothing; "Resume memory" brings it back from the vault site's copy, no prompt.
+  const again = await page.context().newPage();
+  await again.goto("http://localhost:3201/");
+  const resumeStrip = again.frameLocator("iframe.engram-bridge");
+  const resumePopup = again.waitForEvent("popup");
+  await resumeStrip.getByRole("button", { name: "Resume memory" }).click();
+  await (await resumePopup).waitForEvent("close", { timeout: 30_000 }).catch(() => undefined);
+  await expect(resumeStrip.getByText("sharing only what is relevant")).toBeVisible({ timeout: 60_000 });
+  await again.close();
 
   await page.getByLabel("Message Sage").fill("I am vegetarian and I am allergic to peanuts.");
   await page.getByRole("button", { name: "Send" }).click();
@@ -99,12 +113,12 @@ test("Sage proposes, you confirm in the vault, Wayfarer plans around it (provena
   const way = await context.newPage();
   await way.goto("http://localhost:3202/");
   const popupPromise = way.waitForEvent("popup");
-  await way.getByRole("button", { name: "Connect your memory" }).click();
+  await way.getByRole("button", { name: /^Turn on memory/ }).first().click();
   const popup = await popupPromise;
-  await popup.getByRole("button", { name: "Unlock and approve" }).click();
+  // The vault is still signed in on this device (simple-flow.md B): the popup opens unlocked, Approve only.
+  await popup.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(popup.getByRole("heading", { name: "Access granted" })).toBeVisible({ timeout: 90_000 });
   const strip = way.frameLocator("iframe.engram-bridge");
-  await strip.getByRole("button", { name: "Unlock memory" }).click();
   await expect(strip.getByText("sharing only what is relevant")).toBeVisible({ timeout: 60_000 });
   await way.getByLabel("Message Wayfarer").fill("Plan three dinners this week, mind my allergies.");
   await way.getByRole("button", { name: "Send" }).click();

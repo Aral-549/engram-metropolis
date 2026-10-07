@@ -162,6 +162,27 @@ Agent server (`createAgentServer({ ..., mode: "disclosure", continuationSecret }
 | V6 | `/bridge` framed by an unapproved origin | shows "Not approved for this site"; answers nothing | disclosure.md D9 |
 | V7 | any vault page other than `/bridge` framed | blocked by `frame-ancestors 'none'` | |
 
+## Anonymous chat (2026-10-07, contracts/simple-flow.md A)
+Disclosure mode only, and only when the server is created with `anonymous: { perHour?, globalPerHour? }` (the demo apps turn it on;
+without it A1's 401 still holds). A request with no valid session cookie is an anonymous chat: memory is "off", the
+model gets no `<user_memory>` and no `recall` tool, and a readwrite persona keeps `remember` so the page can hold the
+text as "not saved yet". The page sends `client` (the caller's IP, from the route) for rate limiting.
+
+| # | Input | Expected output | Notes |
+|---|---|---|---|
+| A28 | anonymous on; chat with no cookie, client `1.2.3.4` | 200, body `memory: "off"`; the system prompt says memory is off; tools offered: `remember` only (readwrite) | simple-flow C1 |
+| A29 | A28, the model calls `remember("vegetarian")`; continue with no cookie, same client, result `{ ok: false, code: "NOT_CONNECTED" }` | 200 final reply; `saved` empty; the tool message tells the model memory is off and the text is kept on the user's device | simple-flow C2 |
+| A30 | anonymous `perHour: 3`; 4 chats from client A, then 1 from client B | the 4th gets 429 `RATE_LIMITED`; B gets 200 | simple-flow C4 |
+| A31 | a continuation from anonymous client A, continued by client B, or with a valid cookie | 400 `BAD_CONTINUATION`, model not called | bound to the caller |
+| A32 | server without `anonymous`; chat with no cookie | 401 `NOT_AUTHORIZED`, model not called | A1 unchanged |
+| A33 | anonymous on; a cookie that fails verification | treated as anonymous: 200, `memory: "off"` | expired sessions keep chatting |
+| A34 | anonymous chat that sends `disclosed` entries and `memory: "ok"` | ignored: no `<user_memory>` block reaches the model | no unverified memory |
+| A35 | anonymous on, read-only persona | no tools offered | |
+| A36 | a signed-in (cookie) chat on a server with `anonymous` on | unchanged: per-owner limits, body has no `memory: "off"` | |
+| A37 | global limit 10; 10 anonymous chats from 10 IPs; then a signed-in chat | the signed-in chat gets 200: anonymous chats count in their own bucket (`anonymous.globalPerHour`, default 300), never in the signed-in global one | BUGLOG AN-1 |
+| A38 | `anonymous.globalPerHour: 5`; 7 anonymous chats from 7 IPs | 5 get 200, the last 2 get 429 | AN-2 |
+| A39 | memory off; the model calls `recall` anyway (not offered) | answered locally with an error ("memory is off"); no `pending`, so no vault read can reach an anonymous turn | AN-3 |
+
 ## Design and motion (2026-10-02)
 Direction: "archival ledger on warm paper" (Instrument Serif + IBM Plex, paper/ink/seal/rust tokens, wax-seal mark).
 The landing page shows the product working (a live ledger specimen), not a feature list. Each agent has its own

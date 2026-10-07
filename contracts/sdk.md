@@ -239,3 +239,27 @@ Never logs plaintext, PRF output, keys, or wraps.
 - [x] Reviewed by a human (approved to build 2026-10-01)
 - [x] Implementation matches this contract (adversarial pass: 48 probes, all passing after BUGLOG S1-S7 fixes)
 - [x] Golden tests exist for every behavior case above (tests/golden/sdk: 29 golden + 14 regression tests; local anvil + real bytecode + Mera via fake WebAuthn)
+
+## Device sessions (2026-10-07, contracts/simple-flow.md B and C)
+- `signUp`, `signIn`, `fromPrf` and the new `restore` accept `{ reauthWindowMs?, idleMs? }`. Defaults stay
+  `REAUTH_WINDOW_MS` (60 s) and `SESSION_IDLE_MS` (15 min), so cases #24 and #33 are unchanged. The vault passes
+  10 min and 7 days.
+- `session.credentialId?: string`: the passkey credential id from signUp/signIn (public, not a secret).
+- `session.exportRootSecret()`: a copy of the session's root secret, for the vault app's device store and the
+  popup-to-bridge handoff only. Throws `SESSION_ENDED` after `end()`. Never appears in `toJSON` or inspect.
+- `approve` and `disapprove` also return `seq` and `exp` of the policy entry they wrote (vault-internal; never sent to
+  apps, D33), so the connect popup can hand the approval to the bridge (disclosure.md D39).
+- `session.primeApproval(policy)`: see disclosure.md D39-D43.
+- `EngramOwner.restore({ config, rpId, prfOutput, credentialId, webAuthnClient?, reauthWindowMs?, idleMs?, clock? })`:
+  opens a session from a stored root secret **without a ceremony**: the first `grant` or `approve` always prompts
+  (a restored session is not a recent ceremony). `credentialId` is required.
+
+| # | Input | Expected output | Notes |
+|---|---|---|---|
+| 60 | signUp, `exportRootSecret()`, `end()`, then `restore` with the secret and `credentialId` | same owner; no authenticator call during restore | stay signed in |
+| 61 | restored session, `approve` right away | one passkey prompt (reauth), then the approval is written | simple-flow C17 |
+| 62 | signUp with `reauthWindowMs: 600000`; `approve` 5 min later, then another 11 min after the ceremony | first: no prompt; second: one prompt | simple-flow C16 |
+| 63 | signUp with `idleMs: 7 days`; `remember` after 6 days idle | works; with the default idle it would be `SESSION_EXPIRED` | |
+| 64 | `exportRootSecret()` after `end()` | `SESSION_ENDED` | |
+| 65 | `restore` without `credentialId`, or with a prfOutput that is not 32 bytes | `INPUT_INVALID` | |
+| 66 | `JSON.stringify` / inspect of a restored session | no secret bytes, no credential secrets | like #42 |

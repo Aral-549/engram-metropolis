@@ -5,6 +5,9 @@
 import { startBridge, type BridgeEvent, type OwnerSession, type PolicyView } from "@engram/sdk";
 import { useEffect, useRef, useState } from "react";
 import { Seal } from "@/components/Seal";
+import { acceptHandoff } from "@/lib/handoff";
+import { device } from "@/components/SessionProvider";
+import { embedderOrigin, resumeUrl } from "@/lib/resume";
 import { SessionProvider, useSession } from "@/components/SessionProvider";
 
 type Line = { key: number; text: string; tone: "read" | "write" | "empty" | "error" };
@@ -20,7 +23,20 @@ function embedder(): string | null {
 }
 
 function Strip() {
-  const { session, status, signIn, run, error } = useSession();
+  const { session, status, adopt, lock, run, error } = useSession();
+  const [resumeNote, setResumeNote] = useState<string | null>(null);
+
+  // "Resume memory" (simple-flow.md B2): reopen this app's access from the vault site's copy, one click, no QR.
+  function resume() {
+    if (agentId === null || agentId === undefined) return;
+    const app = embedderOrigin({ ancestorOrigins: (window.location as Location & { ancestorOrigins?: DOMStringList }).ancestorOrigins as unknown as ArrayLike<string>, referrer: document.referrer });
+    if (!app) {
+      setResumeNote("Can't tell which app this is. Open the app again and press Turn on memory.");
+      return;
+    }
+    const w = window.open(resumeUrl(window.location.origin, agentId, app), "engram-resume", "popup,width=440,height=560");
+    setResumeNote(w ? null : "Allow pop-ups for this site, then press Resume again.");
+  }
   // Read the URL and the framing context after mount (window does not exist while prerendering).
   const [agentId, setAgentId] = useState<bigint | null | undefined>(undefined);
   const [framed, setFramed] = useState(false);
@@ -51,6 +67,29 @@ function Strip() {
     return () => bridge.current?.stop();
   }, [agentId]);
 
+  // The connect popup hands its session over right after you approve (contracts/simple-flow.md C): no second prompt.
+  useEffect(() => {
+    if (agentId === null || agentId === undefined) return;
+    const onMessage = (ev: MessageEvent) => {
+      const h = acceptHandoff({ origin: ev.origin, data: ev.data }, { vaultOrigin: window.location.origin, agentId });
+      if (!h) return;
+      const policy = h.policy;
+      void adopt(h.prf, h.credentialId).then((s) => {
+        if (!s || !policy) return;
+        // Answer from the approval just written instead of waiting for the indexer (BUGLOG HO-2, disclosure.md D39).
+        try {
+          s.primeApproval(policy);
+          setPolicy(policy);
+          void bridge.current?.refresh();
+        } catch {
+          /* malformed approval: fall back to reading it from the chain */
+        }
+      });
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [agentId, adopt]);
+
   useEffect(() => {
     if (!session || agentId === null || agentId === undefined) {
       setPolicy(undefined);
@@ -58,9 +97,12 @@ function Strip() {
     }
     void run((s) => s.approvalFor(agentId)).then((p) => {
       setPolicy(p ?? null);
+      // Revoked or expired for this app: forget this device's copy here (C11). No approval found yet is not a
+      // revoke (the indexer may still be catching up right after connecting), so it keeps the copy.
+      if (p && (!p.active || p.exp <= Date.now())) lock();
       void bridge.current?.refresh();
     });
-  }, [session, agentId, run]);
+  }, [session, agentId, run, lock]);
 
   if (agentId === undefined) return <Frame><span className="text-ink-soft">Opening your vault…</span></Frame>;
   if (agentId === null || !framed) {
@@ -78,7 +120,9 @@ function Strip() {
           <Seal size={16} />
           <span className="text-ink">Engram vault</span>
           <span className="text-rule">/</span>
-          {status !== "ready" ? (
+          {status === "restoring" ? (
+            <span>opening…</span>
+          ) : status !== "ready" ? (
             <span>locked</span>
           ) : policy === undefined ? (
             <span>checking approval…</span>
@@ -96,18 +140,24 @@ function Strip() {
           ) : status === "ready" ? (
             <span className="text-ink-soft">No reads yet. Each one will show up here and in your vault.</span>
           ) : (
-            <span className="text-ink-soft">{error ?? "Unlock so this app can ask your vault. It won't get a key."}</span>
+            <span className="text-ink-soft">{resumeNote ?? error ?? "Resume so this app can ask your vault. It won't get a key."}</span>
           )}
         </p>
       </div>
       {status !== "ready" ? (
-        <button className="btn btn-primary shrink-0 px-3 py-1.5 text-sm" onClick={() => void signIn()} disabled={busy}>
-          {busy ? "Waiting…" : "Unlock memory"}
+        <button className="btn btn-primary shrink-0 px-3 py-1.5 text-sm" onClick={resume} disabled={busy || status === "restoring"}>
+          {busy ? "Waiting…" : "Resume memory"}
         </button>
       ) : approvedHere ? (
         <button
           className="btn btn-danger shrink-0 px-3 py-1.5 text-sm"
-          onClick={() => void run((s) => s.disapprove(agentId)).then((r) => r && setPolicy((p) => (p ? { ...p, active: false } : p)))}
+          onClick={() =>
+            void run((s) => s.disapprove(agentId)).then((r) => {
+              if (!r) return;
+              setPolicy((p) => (p ? { ...p, active: false } : p));
+              void device("tab").clear().catch(() => {}); // revoked here: forget this app's copy (C11)
+            })
+          }
         >
           Revoke
         </button>
@@ -122,7 +172,7 @@ function Frame({ children }: { children: React.ReactNode }) {
 
 export default function BridgePage() {
   return (
-    <SessionProvider>
+    <SessionProvider scope="tab">
       <Strip />
     </SessionProvider>
   );

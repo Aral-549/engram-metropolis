@@ -42,6 +42,8 @@ import { APP_SESSION_MAX_TTL_SEC, APP_SESSION_TYPES, appSessionDomain, exactOrig
 
 export const SESSION_IDLE_MS = 15 * 60 * 1000;
 export const REAUTH_WINDOW_MS = 60 * 1000;
+/** How long a primed approval whose seq is not onchain (and not lagging) is kept, for a lagging RPC node (D46). */
+export const PRIME_GRACE_MS = 30 * 1000;
 /** Grants expiring within this margin of chain time are revoked explicitly on rotation (sdk.md case 34). */
 export const EXPIRY_MARGIN_SEC = 60n;
 export const MAX_GRANTEES = 16;
@@ -115,27 +117,44 @@ export function assertAgentId(agentId: bigint) {
 
 type Reauth = () => Promise<Uint8Array>;
 
+/** Per-session timing (contracts/sdk.md "Device sessions"). Defaults: REAUTH_WINDOW_MS and SESSION_IDLE_MS. */
+export type SessionOptions = { reauthWindowMs?: number; idleMs?: number };
+type OpenExtra = SessionOptions & { credentialId?: string; ceremony?: boolean };
+const extraOf = (o: SessionOptions, credentialId?: string, ceremony = true): OpenExtra => ({
+  reauthWindowMs: o.reauthWindowMs, idleMs: o.idleMs, credentialId, ceremony,
+});
+
 export class EngramOwner {
   /** Creates a passkey (one ceremony) and opens a session. */
-  static async signUp(opts: { config: EngramConfig; rpId: string; rpName: string; userName: string; webAuthnClient?: WebAuthnClient; clock?: () => number }) {
+  static async signUp(opts: { config: EngramConfig; rpId: string; rpName: string; userName: string; webAuthnClient?: WebAuthnClient; clock?: () => number } & SessionOptions) {
     const res = await createPasskeyWithPrfOutput({
       rp: { id: opts.rpId, name: opts.rpName },
       user: { name: opts.userName, displayName: opts.userName },
       prfSalt: ROOT_SALT,
       webAuthnClient: opts.webAuthnClient,
     }).catch(passkeyError);
-    return OwnerSession.open(opts.config, res.prfOutput, reauthFor(opts.rpId, res.credentialId, opts.webAuthnClient), opts.clock);
+    return OwnerSession.open(opts.config, res.prfOutput, reauthFor(opts.rpId, res.credentialId, opts.webAuthnClient), opts.clock, extraOf(opts, res.credentialId));
   }
 
   /** Signs in with an existing passkey (one ceremony). Nothing is read from local storage. */
-  static async signIn(opts: { config: EngramConfig; rpId: string; webAuthnClient?: WebAuthnClient; clock?: () => number }) {
+  static async signIn(opts: { config: EngramConfig; rpId: string; webAuthnClient?: WebAuthnClient; clock?: () => number } & SessionOptions) {
     const res = await getPasskeyPrfOutput({ rpId: opts.rpId, prfSalt: ROOT_SALT, webAuthnClient: opts.webAuthnClient }).catch(passkeyError);
-    return OwnerSession.open(opts.config, res.prfOutput, reauthFor(opts.rpId, res.credentialId, opts.webAuthnClient), opts.clock);
+    return OwnerSession.open(opts.config, res.prfOutput, reauthFor(opts.rpId, res.credentialId, opts.webAuthnClient), opts.clock, extraOf(opts, res.credentialId));
   }
 
   /** Advanced/testing: open a session from a PRF output directly. Without `reauth`, grants never re-prompt. */
-  static async fromPrf(opts: { config: EngramConfig; prfOutput: Uint8Array; reauth?: Reauth; clock?: () => number }) {
-    return OwnerSession.open(opts.config, opts.prfOutput, opts.reauth, opts.clock);
+  static async fromPrf(opts: { config: EngramConfig; prfOutput: Uint8Array; reauth?: Reauth; clock?: () => number } & SessionOptions) {
+    return OwnerSession.open(opts.config, opts.prfOutput, opts.reauth, opts.clock, extraOf(opts));
+  }
+
+  /**
+   * Re-opens a session from a root secret the vault kept on this device (contracts/sdk.md #60-#66). No ceremony:
+   * the first grant or approve always asks for the passkey, because a restored session is not a recent ceremony.
+   */
+  static async restore(opts: { config: EngramConfig; rpId: string; prfOutput: Uint8Array; credentialId: string; webAuthnClient?: WebAuthnClient; clock?: () => number } & SessionOptions) {
+    if (typeof opts.credentialId !== "string" || !opts.credentialId) fail("INPUT_INVALID", "restore needs the passkey credentialId");
+    if (!(opts.prfOutput instanceof Uint8Array) || opts.prfOutput.length !== 32) fail("INPUT_INVALID", "restore needs a 32-byte root secret");
+    return OwnerSession.open(opts.config, opts.prfOutput, reauthFor(opts.rpId, opts.credentialId, opts.webAuthnClient), opts.clock, extraOf(opts, opts.credentialId, false));
   }
 }
 
@@ -148,6 +167,10 @@ const ended = () => new EngramError("SESSION_ENDED", "this session has ended; si
 
 export class OwnerSession {
   readonly owner: Hex;
+  /** The passkey credential this session came from (public; used to re-prompt the same passkey). */
+  readonly credentialId: string | undefined;
+  readonly #reauthWindowMs: number;
+  readonly #idleMs: number;
   // Secrets live in ES private fields: invisible to JSON.stringify, util.inspect, and Object.keys (BUGLOG S5).
   readonly #prf: Uint8Array;
   readonly #signing: Secp256k1SigningSession;
@@ -175,10 +198,18 @@ export class OwnerSession {
   #reviewCache: { at: number; records: Map<string, ReviewRec> } | undefined;
   #reviewTail: Promise<unknown> = Promise.resolve();
   readonly #pairwiseAddr = new Map<string, Hex>();
+  // Approvals primed from the connect popup and not yet confirmed onchain (disclosure.md D39-D46, BUGLOG HO-3).
+  readonly #primed = new Map<string, { p: PolicyView; at: number }>();
   #lastActivity: number;
   #lastCeremony: number;
 
-  private constructor(config: EngramConfig, prf: Uint8Array, reauth: Reauth | undefined, clock: () => number) {
+  private constructor(config: EngramConfig, prf: Uint8Array, reauth: Reauth | undefined, clock: () => number, extra: OpenExtra = {}) {
+    const window = extra.reauthWindowMs ?? REAUTH_WINDOW_MS;
+    const idle = extra.idleMs ?? SESSION_IDLE_MS;
+    if (!Number.isSafeInteger(window) || window < 0 || !Number.isSafeInteger(idle) || idle <= 0) fail("INPUT_INVALID", "reauthWindowMs and idleMs must be non-negative integers");
+    this.#reauthWindowMs = window;
+    this.#idleMs = idle;
+    this.credentialId = extra.credentialId;
     this.#config = config;
     this.#reauth = reauth;
     this.#clock = clock;
@@ -188,11 +219,22 @@ export class OwnerSession {
     acc.accountKey.fill(0);
     this.#account = toViemAccount(this.#signing) as LocalAccount;
     this.owner = acc.owner;
-    this.#lastActivity = this.#lastCeremony = clock();
+    this.#lastActivity = clock();
+    // A restored session never counts as a recent ceremony (sdk.md #61).
+    this.#lastCeremony = extra.ceremony === false ? Number.NEGATIVE_INFINITY : this.#lastActivity;
   }
 
-  static async open(config: EngramConfig, prf: Uint8Array, reauth: Reauth | undefined, clock: () => number = Date.now) {
-    return new OwnerSession(config, prf, reauth, clock);
+  static async open(config: EngramConfig, prf: Uint8Array, reauth: Reauth | undefined, clock: () => number = Date.now, extra?: OpenExtra) {
+    return new OwnerSession(config, prf, reauth, clock, extra);
+  }
+
+  /**
+   * A copy of the root secret, for the vault app's device store and the popup-to-bridge handoff only
+   * (contracts/simple-flow.md B, C). Callers must zero it after use.
+   */
+  exportRootSecret(): Uint8Array {
+    if (this.#ended) throw ended();
+    return new Uint8Array(this.#prf);
   }
 
   toJSON() {
@@ -216,9 +258,9 @@ export class OwnerSession {
   private touch() {
     this.live();
     const now = this.#clock();
-    if (now - this.#lastActivity > SESSION_IDLE_MS) {
+    if (now - this.#lastActivity > this.#idleMs) {
       this.end();
-      fail("SESSION_EXPIRED", "the session expired after 15 minutes of inactivity; unlock with your passkey");
+      fail("SESSION_EXPIRED", "the session expired after a period of inactivity; unlock with your passkey");
     }
     this.#lastActivity = Math.max(this.#lastActivity, now);
   }
@@ -660,7 +702,8 @@ export class OwnerSession {
     const prev = cache.byAgent.get(p.agentId.toString());
     if (!prev || prev.seq < r.seq) cache.byAgent.set(p.agentId.toString(), { ...p, seq: r.seq });
     this.#policyCache = cache;
-    return { txHash: r.txHash, pairwiseOwner: this.pairwise(p.agentId) };
+    // seq stays inside the vault (it names the owner onchain, D33); the popup hands it to the bridge (D39).
+    return { txHash: r.txHash, pairwiseOwner: this.pairwise(p.agentId), seq: r.seq, exp: p.exp };
   }
 
   /** Latest policy per agent, re-read from the chain when the cache is older than 3 s (or when forced). */
@@ -677,11 +720,47 @@ export class OwnerSession {
     // Start from what this session already knows: a refresh never replaces a policy with an older one, so indexer
     // lag can never undo a revoke made here (BUGLOG D-3, disclosure.md D30).
     const byAgent = new Map<string, PolicyView>(c?.byAgent ?? []);
-    for (const d of docs) {
-      if (d.doc.v !== 2 || d.doc.kind !== "policy" || !d.byOwner) continue;
+    const fromDoc = (d: Doc): PolicyView | undefined => {
+      if (d.doc.v !== 2 || d.doc.kind !== "policy" || !d.byOwner) return undefined;
       const x = d.doc;
-      const prev = byAgent.get(x.agent);
-      if (!prev || prev.seq < d.seq) byAgent.set(x.agent, { agentId: BigInt(x.agent), origin: x.origin, labels: x.labels, scope: x.scope, exp: x.exp, active: x.active, seq: d.seq });
+      return { agentId: BigInt(x.agent), origin: x.origin, labels: x.labels, scope: x.scope, exp: x.exp, active: x.active, seq: d.seq };
+    };
+    for (const d of docs) {
+      const v = fromDoc(d);
+      if (!v) continue;
+      const prev = byAgent.get(v.agentId.toString());
+      if (!prev || prev.seq < d.seq) byAgent.set(v.agentId.toString(), v);
+    }
+    // Primed approvals are unconfirmed until the chain shows the same entry; the chain always wins (HO-3).
+    for (const [agent, { p, at }] of [...this.#primed]) {
+      const cur = byAgent.get(agent);
+      if (!cur || cur.seq !== p.seq) {
+        this.#primed.delete(agent); // a newer chain entry already replaced it
+        continue;
+      }
+      const onchain = docs.find((d) => d.seq === p.seq);
+      let drop = false;
+      if (onchain) {
+        const v = fromDoc(onchain);
+        this.#primed.delete(agent); // confirmed or contradicted: either way the chain now speaks for it
+        drop = !v || v.agentId.toString() !== agent || v.origin !== p.origin || v.scope !== p.scope || v.exp !== p.exp ||
+          v.active !== p.active || JSON.stringify(v.labels) !== JSON.stringify(p.labels); // D45
+      } else if (!read.missingSeqs.includes(p.seq)) {
+        // Not onchain and not lagging: drop at once if a revoke is visible (D44), else after the grace (D46).
+        const revoked = docs.some((d) => { const v = fromDoc(d); return !!v && v.agentId.toString() === agent && !v.active; });
+        const age = now - at;
+        if (revoked || age < 0 || age > PRIME_GRACE_MS) {
+          drop = true;
+          this.#primed.delete(agent);
+        }
+      }
+      if (drop) {
+        byAgent.delete(agent);
+        for (const d of docs) {
+          const v = fromDoc(d);
+          if (v && v.agentId.toString() === agent && (!byAgent.has(agent) || byAgent.get(agent)!.seq < v.seq)) byAgent.set(agent, v);
+        }
+      }
     }
     this.#policyCache = { at: now, byAgent };
     return byAgent;
@@ -697,6 +776,35 @@ export class OwnerSession {
       await this.#policyTail; // reflect policy writes already requested
       return [...(await this.loadPolicies(true)).values()].map((p) => this.withLocalRevokes(p)!);
     });
+  }
+
+  /**
+   * Seeds the policy cache with an approval this vault just wrote (disclosure.md D39-D43, BUGLOG HO-2), so the bridge
+   * answers before the indexer has seen it. Vault code only, with an approval from the vault-origin handoff. Never
+   * lowers a newer cached policy; later refreshes merge by seq as always (D30), so a newer revoke still wins.
+   */
+  primeApproval(p: PolicyView): void {
+    this.live();
+    const bad = (why: string) => fail("INPUT_INVALID", `primeApproval: ${why}`);
+    if (!p || typeof p !== "object") bad("policy must be an object");
+    if (typeof p.agentId !== "bigint") bad("agentId must be a bigint");
+    assertAgentId(p.agentId);
+    if (typeof p.origin !== "string" || exactOrigin(p.origin) !== p.origin) bad("origin must be an exact origin");
+    if (!Array.isArray(p.labels) || !p.labels.length || p.labels.length > 8 || new Set(p.labels).size !== p.labels.length ||
+      !p.labels.every((l) => typeof l === "string" && LABEL_RE.test(l) && !l.startsWith("engram-"))) bad("labels must be 1..8 unique, non-reserved folder labels");
+    if (p.scope !== "read" && p.scope !== "readwrite") bad("scope must be read or readwrite");
+    if (typeof p.exp !== "number" || !Number.isFinite(p.exp)) bad("exp must be a finite number of milliseconds");
+    if (typeof p.active !== "boolean") bad("active must be a boolean");
+    if (typeof p.seq !== "bigint" || p.seq < 0n) bad("seq must be a non-negative bigint");
+    // A stale cache time makes the next read refresh from the source; the merge keeps this entry unless newer.
+    const cache = this.#policyCache ?? { at: Number.NEGATIVE_INFINITY, byAgent: new Map<string, PolicyView>() };
+    const prev = cache.byAgent.get(p.agentId.toString());
+    if (!prev || prev.seq < p.seq) {
+      const copy = { agentId: p.agentId, origin: p.origin, labels: [...p.labels], scope: p.scope, exp: p.exp, active: p.active, seq: p.seq };
+      cache.byAgent.set(p.agentId.toString(), copy);
+      this.#primed.set(p.agentId.toString(), { p: copy, at: this.#clock() });
+    }
+    this.#policyCache = cache;
   }
 
   /** The current approval for one agent (cached up to 3 s), used by the bridge to check the requesting origin. */
@@ -1115,7 +1223,7 @@ export class OwnerSession {
   /** A clock that went backwards never counts as "recent" (BUGLOG S5). */
   private async freshCeremony() {
     const elapsed = this.#clock() - this.#lastCeremony;
-    if (!this.#reauth || (elapsed >= 0 && elapsed <= REAUTH_WINDOW_MS)) return;
+    if (!this.#reauth || (elapsed >= 0 && elapsed <= this.#reauthWindowMs)) return;
     const prf2 = await this.#reauth();
     const owner2 = crypto(() => deriveAccount(prf2)).owner;
     prf2.fill(0);

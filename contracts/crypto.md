@@ -85,7 +85,9 @@ Python implementation (`cryptography` + `hashlib`), not by `packages/crypto`, th
 - Agent public key all-zero / low-order point -> `INPUT_INVALID` (X25519 all-zero shared secret check).
 - Decrypted plaintext that is not valid entry JSON -> `ENTRY_INVALID` (ciphertext was authentic but a
   granted writer wrote junk; caller skips the entry and logs it).
-- Key material is never logged, never serialized to JSON, never written to storage. Buffers are
+- Key material is never logged, never serialized to JSON, never written to storage, with one exception: the vault
+  app's device store (contracts/simple-flow.md B) keeps the root secret AES-GCM-encrypted under a non-extractable
+  WebCrypto key, on the vault origin only. Buffers are
   zeroed after use where the platform allows.
 
 - (review 2026-10-01) Agent X25519 public key must be canonical: top bit of byte 31 clear and u < 2^255-19.

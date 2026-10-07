@@ -273,3 +273,46 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** sdk relay handler (`createRelayHandler`) and `OwnerSession.relaySerial`
 - **Regression case added:** `tests/golden/sdk/sdk.concurrency2.golden.test.ts` -- case 56
 - **Status:** fixed
+
+## 2026-10-07 -- AN-1..AN-3: anonymous chat adversarial review
+- **Symptom:** probes in `tests/adversarial/agent-kit/agent-kit.anonymous.adversarial.test.ts`: (AN-1) after 10 anonymous chats from 10 IPs with a global limit of 10, a signed-in user got 429; (AN-2) 7 anonymous chats from 7 IPs all got 200 with no anonymous cap; (AN-3) with memory off, a model `recall` call came back as a `pending` vault read.
+- **Root cause:** (AN-1, AN-2) anonymous callers were admitted against the shared `*` global bucket, with no bucket of their own; (AN-3) `planTool` turned any `recall` into a pending read without checking that memory was off, so a page whose session had expired but whose bridge was still unlocked could feed vault entries into an anonymous turn.
+- **Stage/module:** agent-kit `createAgentServer` (disclosure engine: `disclosureChat`, `continueAs`, `planTool`)
+- **Regression cases added:** `tests/golden/agent-kit/agent-kit.anonymous2.golden.test.ts` -- cases A37, A38, A39
+- **Status:** fixed
+
+## 2026-10-07 -- AN-4: anonymous per-IP limit could be dodged with a forged X-Forwarded-For
+- **Symptom:** found by reading `apps/agent/lib/server.ts` `clientOf` in the AN adversarial pass: it used the first `x-forwarded-for` entry.
+- **Root cause:** behind proxies that append (Railway), the first entry is whatever the client sent, so each request could claim a new IP. Cost stayed bounded by the anonymous global cap (A38).
+- **Stage/module:** agent app API routes (`clientOf`)
+- **Regression case added:** none yet: the agent app has no route-level test harness. Pending; not counted as done.
+- **Status:** fixed, regression case open
+
+## 2026-10-07 -- HO-1: handoff validation read inherited fields
+- **Symptom:** adversarial probe `tests/adversarial/vault/vault.device.adversarial.test.ts` ("non-Uint8Array secrets..."): an object whose `type` came from its prototype was accepted by `acceptHandoff`.
+- **Root cause:** field checks used plain property reads. Not reachable through `postMessage` (structured clone drops prototypes), but the validator should not depend on that.
+- **Stage/module:** vault `lib/handoff.ts` (`acceptHandoff`)
+- **Regression case added:** `tests/golden/vault/vault.device2.golden.test.ts` -- case HO-1
+- **Status:** fixed
+
+## 2026-10-07 -- HO-2: first message right after connecting can be treated as "revoked"
+- **Symptom:** found in the step-2 adversarial review (reasoning, not yet reproduced live): after the handoff, the strip's new session reads the approval from the indexer; if the indexer trails the policy write, `disclose` answers `NOT_APPROVED`, and the agent page maps that to `memory: "revoked"`.
+- **Root cause:** the popup's session wrote the approval, but the strip's session starts with an empty policy cache and depends on indexer lag. The handoff is now instant, so the window is more likely to be hit than with the old manual unlock.
+- **Stage/module:** vault bridge (`apps/vault/app/bridge/page.tsx`) + SDK `approvalFor`; agent page `ask()`
+- **Fix:** the connect popup hands over the approval it just wrote (with its seq) together with the session; the bridge primes its policy cache with it (`primeApproval`), so it answers before the indexer catches up. The chain stays authoritative (HO-3).
+- **Regression case added:** `tests/golden/disclosure/disclosure.prime.golden.test.ts` -- cases D39-D43 (D39 reproduces the bug first: `NOT_APPROVED` before priming); `tests/golden/vault/vault.handoff2.golden.test.ts` -- C21b
+- **Status:** fixed
+
+## 2026-10-07 -- HO-3: a primed approval could outrank a real revoke
+- **Symptom:** adversarial probes `tests/adversarial/disclosure/prime.adversarial.test.ts`: (1) a bridge primed with an approval at a seq that never existed onchain kept answering after the owner revoked; (2) a primed approval that disagreed with the onchain entry at the same seq (another origin) was kept.
+- **Root cause:** `primeApproval` (the HO-2 fix) put the approval in the policy cache like a chain-read entry, and refreshes only replace entries with a higher seq, so an unverified seq was trusted indefinitely. Only vault code can prime, but one bug or one XSS on the vault origin could have pinned access open.
+- **Stage/module:** sdk `OwnerSession.primeApproval` / `loadPolicies`
+- **Regression cases added:** `tests/golden/disclosure/disclosure.prime2.golden.test.ts` -- cases D44, D45, D46
+- **Status:** fixed
+
+## 2026-10-07 -- RS-1: Resume said "not approved" when the vault could not be reached
+- **Symptom:** found by reading `apps/vault/app/resume/page.tsx` in the B2 adversarial pass: any error while reading the approval (network, RPC) ended in "This app isn't approved", which is false and would push users to re-approve.
+- **Root cause:** `run()` returns undefined both for "no approval" and for a failed call; the page treated both as a refusal.
+- **Stage/module:** vault resume popup
+- **Regression case added:** none yet: the vault pages have no component test harness; covered manually and by the e2e Resume step once the e2e suite can run. Not counted as done.
+- **Status:** fixed, regression case open

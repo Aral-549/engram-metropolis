@@ -21,6 +21,7 @@ export {
   OwnerSession,
   SESSION_IDLE_MS,
   REAUTH_WINDOW_MS,
+  type SessionOptions,
   type GrantScope,
   type GrantView,
   type RecallResult,

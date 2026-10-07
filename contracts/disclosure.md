@@ -23,7 +23,8 @@ Design rationale, transport spike and threat model: [`docs/design/disclosure.md`
   (`engram.v1/pairwise/secp256k1/<agentId>`, crypto.md). Its address is the only owner identity the agent ever sees.
   It is stable across devices, different for every agent, and never appears onchain.
 - **Bridge:** the vault page `${vaultUrl}/bridge?agentId=N`, embedded by the agent app as a small cross-site iframe
-  strip. It holds its own vault session (one passkey tap to unlock) and answers `disclose`, `propose` and
+  strip. It holds its own vault session: restored from its own device store, handed over by the connect popup
+  (contracts/simple-flow.md C), or one passkey tap to unlock and answers `disclose`, `propose` and
   `status` requests over `postMessage`, only from the approved origin.
 - **Disclosure:** one answer to one request: the entries selected for a query, plus one `log` entry recording it.
 - **Reserved folders:** labels starting with `engram-` (`engram-index`, `engram-policy`, `engram-log`). They are
@@ -107,6 +108,20 @@ Design rationale, transport spike and threat model: [`docs/design/disclosure.md`
 | D36 | `approve` and `disapprove` for one agent called concurrently | applied in call order; the last call wins | DA-6 |
 | D37 | `grant`, `approve`, or a custom folder named `engram-*` | `INPUT_INVALID` | reserved folders |
 | D38 | the bridge page loads after the app has started waiting | a bridge that starts locked posts `{ type: "engram:bridge:hello", v: 1 }` (no data) to its parent (an unlocked one sends its status to the approved origin); the app sends its first request only after hello or status, or after load plus 2 s | no lost first request |
+| D39 | the connect popup approves agent 7 (policy written at seq N) and hands its session **and that approval** to the bridge; the indexer has not seen the policy yet | the bridge calls `primeApproval(policy)` and answers the first `disclose` at once (no `NOT_APPROVED`) | BUGLOG HO-2 |
+| D40 | D39, then the owner revokes agent 7 elsewhere (a policy at seq > N) and the source catches up | the next policy refresh (> 3 s, D12) makes the bridge answer `NOT_APPROVED` | revoke stays authoritative |
+| D41 | the owner revoked (seq 3) and then re-approved (seq 4); the source has only seq 3; the bridge is primed with seq 4 | approved: a refresh never replaces a primed policy with an older one (same rule as D30) | lag cannot undo an approval |
+| D42 | `primeApproval` with a reserved or invalid label, a non-exact origin, an agentId out of range, a negative or non-integer seq, a non-boolean `active` | `INPUT_INVALID`, nothing cached | |
+| D43 | a primed approval whose `exp` has passed | `EXPIRED` (D11) | expiry still enforced |
+| D44 | a primed approval whose seq does not exist onchain (not lagging: the source is complete up to the chain's `nextSeq`), and a revoke for that agent is visible | dropped at the next refresh: the revoke applies (`NOT_APPROVED`) | BUGLOG HO-3: a bad prime cannot block a revoke |
+| D45 | a primed approval that disagrees (origin, labels, scope, exp or active) with the onchain policy at the same seq | the onchain entry replaces it at the next refresh | HO-3: the chain wins |
+| D46 | a primed approval whose seq does not exist onchain and no revoke is visible | kept at most 30 s after priming (a lagging RPC node), then dropped | HO-3 grace |
+
+`primeApproval(policy)` (owner session): seeds the policy cache with an approval this vault just wrote, so the bridge
+does not wait for the indexer (D39-D43). Only vault code calls it, and only with an approval received over the
+vault-origin handoff (contracts/simple-flow.md C), which already carries the session's root secret, so it adds no
+new trust. It never lowers a newer cached policy (higher `seq` wins). A primed approval stays **unconfirmed** until a
+refresh finds the same entry onchain; until then the chain overrides it as D44-D46 say.
 
 ## Edge cases that must be covered
 - An unlocked bridge idle for 15 minutes locks itself (`SESSION_IDLE_MS`) and answers `VAULT_LOCKED`.

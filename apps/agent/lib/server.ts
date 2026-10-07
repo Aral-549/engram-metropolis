@@ -48,9 +48,22 @@ export function agentServer(): AgentServer {
     kimi: { baseUrl: process.env.KIMI_BASE_URL ?? "https://api.moonshot.ai/v1", apiKey: need("KIMI_API_KEY"), model: process.env.KIMI_MODEL ?? "kimi-k2.6" },
     origin: need("APP_ORIGIN"),
     persona: { name: p.name, description: p.description, systemPrompt: p.systemPrompt, canWrite: p.scope === "readwrite", labels: p.labels },
+    // Chat without a vault (contracts/apps.md A28-A36); ANON_CHAT=off turns it off.
+    ...(mode === "disclosure" && process.env.ANON_CHAT !== "off" ? { anonymous: { perHour: Number(process.env.ANON_PER_HOUR ?? 20) || 20 } } : {}),
   });
   return server;
 }
 
 export const COOKIE = "engram_app_session";
+
+/**
+ * The caller's IP for anonymous rate limits. Prefer x-real-ip (set by the platform); else the LAST x-forwarded-for
+ * entry, which the nearest proxy appended. The first entry is client-controlled behind appending proxies (BUGLOG AN-4).
+ */
+export function clientOf(req: Request): string {
+  const real = req.headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  const hops = (req.headers.get("x-forwarded-for") ?? "").split(",").map((h) => h.trim()).filter(Boolean);
+  return hops.at(-1) ?? "unknown";
+}
 export const AGENT_MODE = process.env.AGENT_MODE === "offline" ? "offline" : "disclosure";

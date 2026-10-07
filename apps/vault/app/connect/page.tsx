@@ -1,12 +1,33 @@
 "use client";
 // Consent popup (contracts/apps.md "Connect flow", cases V3, V4; sdk.md cases 12-14).
-import { parseConnectRequest, replyToOpener, type AgentCard, type ConnectRequest } from "@engram/sdk";
+import { parseConnectRequest, replyToOpener, type AgentCard, type ConnectRequest, type OwnerSession, type PolicyView } from "@engram/sdk";
 import { useEffect, useRef, useState } from "react";
 import { KNOWN_LABELS, addLabel } from "@/lib/discover";
 import { explain } from "@/lib/engram";
 import { Seal } from "@/components/Seal";
 import { SessionProvider, useSession } from "@/components/SessionProvider";
 import { agentCard } from "@/components/useAgentCards";
+import { HANDOFF_TYPE, sendHandoff } from "@/lib/handoff";
+
+/**
+ * Unlocks the app's vault strip with this session (contracts/simple-flow.md C). Retries every 250 ms for 3 s in case
+ * the strip is still loading (C22); the strip ignores repeats. Resolves when done, so the popup can close after.
+ */
+async function handOff(s: OwnerSession, agentId: bigint, policy?: PolicyView): Promise<number> {
+  if (!s.credentialId || !window.opener) return 0;
+  const prf = s.exportRootSecret();
+  let best = 0;
+  try {
+    for (let t = 0; t <= 3000; t += 250) {
+      best = Math.max(best, sendHandoff(window.opener as Window, { type: HANDOFF_TYPE, v: 1, agentId: agentId.toString(), prf, credentialId: s.credentialId, ...(policy ? { policy } : {}) }, window.location.origin));
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  } finally {
+    prf.fill(0);
+  }
+  console.info(JSON.stringify({ stage: "vault", op: "handoff", ok: best > 0, tries: 13, frames: best }));
+  return best;
+}
 
 function duration(sec: number) {
   if (sec < 3600) return `${Math.round(sec / 60)} minutes`;
@@ -74,7 +95,9 @@ function Consent() {
       // No txHash: the policy tx's calldata names your real address, which the app must never learn (D33).
       reply({ ok: true, owner: r.pairwiseOwner, granted: req.labels, sessionProof: proof, mode: "disclosure" });
       setPhase("done");
-      setTimeout(() => window.close(), 1400);
+      // Hand over the approval with its seq too, so the strip answers before the indexer catches up (HO-2).
+      await handOff(s, req.agentId, { agentId: req.agentId, origin: req.origin, labels: req.labels, scope: req.scope, exp: r.exp, active: true, seq: r.seq });
+      setTimeout(() => window.close(), 400);
       return;
     }
     // Sign the app-session proof first (prompt-free, in-session): if it fails, nothing has been granted yet.
@@ -169,12 +192,12 @@ function Consent() {
           </p>
 
           <div className="mt-6 flex flex-col gap-2">
-            <button className="btn btn-primary justify-center px-5 py-3" onClick={() => void approve("existing")} disabled={phase === "granting" || status === "working"}>
+            <button className="btn btn-primary justify-center px-5 py-3" onClick={() => void approve("existing")} disabled={phase === "granting" || status === "working" || status === "restoring"}>
               <Seal size={18} />
-              {phase === "granting" ? "Sealing access onchain…" : status === "working" ? "Waiting for your passkey…" : session ? "Approve with passkey" : "Unlock and approve"}
+              {phase === "granting" ? "Sealing access onchain…" : status === "working" ? "Waiting for your passkey…" : status === "restoring" ? "Opening your vault…" : session ? "Approve" : "Unlock and approve"}
             </button>
             {!session ? (
-              <button className="btn btn-ghost justify-center px-5 py-2.5" onClick={() => void approve("new")} disabled={phase === "granting" || status === "working"}>
+              <button className="btn btn-ghost justify-center px-5 py-2.5" onClick={() => void approve("new")} disabled={phase === "granting" || status === "working" || status === "restoring"}>
                 New here? Create a vault and approve
               </button>
             ) : null}
