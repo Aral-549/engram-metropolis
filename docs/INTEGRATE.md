@@ -110,6 +110,18 @@ Everything you `propose` waits in the user's **Review** tab, credited to your ag
 agent sees what it proposed. Proposals that look like instructions to an AI ("ignore previous...", URLs,
 `</user_memory>`) are shown with a warning. Write durable facts the user stated, in their words.
 
+If the user ticked **auto-save** when approving you, short, plain facts about them ("vegetarian", "uses pnpm") are
+saved without review and reach the user's other approved apps at once. Anything else (instructions, links, text that
+addresses an AI) still waits in Review, and the user can undo any auto-saved memory. Write plain facts and you will
+rarely need a review.
+
+Optional: let people chat before they connect. `createAgentServer({ ..., anonymous: { perHour: 20 } })` answers
+callers without a session with memory off; `remember` calls come back so your page can hold them as "not saved yet"
+and propose them once the user connects (see the demo agents). Pass the caller's IP as `client` for rate limits.
+
+No code at all? If your users work in Claude Code, Claude Desktop or Cursor, point them at
+[`docs/MCP.md`](MCP.md): `engram-mcp` gives their AI tool the same ask-the-vault memory.
+
 ## 8. Going live
 - Deploy your app at the origin you registered. If the origin changes, rerun the script with a new `--out` (new
   agent), or call `setAgentURI(agentId, newCardUrl)` on the ERC-8004 IdentityRegistry and serve a new card.

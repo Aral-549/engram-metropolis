@@ -129,6 +129,9 @@ Same canonical, strict, 2048-byte rules as v1. Unknown keys are rejected.
   (same field rules as `log`). Writers pack as many items as fit in 2048 bytes. Readers accept `log` and `logs`.
 - review (provenance.md): `{"v":2,"t":<ms>,"kind":"review","target":{"l":<label>,"s":"<seq>"},"agent":"<id>","action":"confirm","copy":"<seq>"}`
   or the same with `"action":"reject"` and no `copy`. Stored only in the reserved folder `engram-review`.
+- auto-save (2026-10-08, contracts/simple-flow.md D, provenance.md P27-P36): a policy may end with `"auto":true`
+  (key present only when true; `"auto":false` is `ENTRY_INVALID`, so old entries keep one encoding), and a review may
+  be `{"v":2,"t":<ms>,"kind":"review","target":{"l":<label>,"s":"<seq>"},"agent":"<id>","action":"auto"}` (no `copy`).
 - reviews (batch reject): `{"v":2,"t":<ms>,"kind":"reviews","agent":"<id>","action":"reject","targets":[<1..50 {l, s}>]}`.
   Writers pack as many targets as fit in 2048 bytes. Same folder.
 

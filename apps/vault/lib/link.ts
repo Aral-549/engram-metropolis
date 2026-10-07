@@ -34,8 +34,8 @@ export async function answerLink(session: OwnerSession | null, frame: unknown, c
       const r = await session.disclose({ agentId: ctx.agentId, origin: ctx.origin, query: args.query as string, mode: args.all === true ? "full" : "relevant", round: 0 });
       return ok({ entries: r.entries });
     }
-    await session.propose(ctx.agentId, ctx.origin, { kind: args.kind as "fact", text: (args.text as string).trim() });
-    return ok({ saved: "suggestion" });
+    const w = await session.propose(ctx.agentId, ctx.origin, { kind: args.kind as "fact", text: (args.text as string).trim() });
+    return ok({ saved: w.auto ? "auto" : "suggestion" });
   } catch (e) {
     const code = typeof (e as { code?: unknown }).code === "string" ? (e as { code: string }).code : "VAULT_ERROR";
     return { type: "res", id, ok: false, code, message: code === "VAULT_ERROR" ? "the vault could not answer" : String((e as Error).message ?? code).slice(0, 200) };

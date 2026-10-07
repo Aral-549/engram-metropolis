@@ -31,7 +31,7 @@ import { decodeEventLog, decodeFunctionData, encodeFunctionData, hexToBytes, toH
 import { privateKeyToAccount } from "viem/accounts";
 import type { LogItem } from "@engram/crypto";
 import { selectCandidates, type Candidate, type DisclosedEntry, type DisclosureMode } from "./select.js";
-import { looksLikeInstruction } from "./instruction.js";
+import { autoSaveAllowed, looksLikeInstruction } from "./instruction.js";
 import { memoryRegistryAbi } from "./abi.js";
 import { chainReads } from "./chain.js";
 import { clientsFor, loggerOf, type EngramConfig } from "./config.js";
@@ -64,7 +64,8 @@ const LOG_QUEUE_MAX = 500;
 const LOG_ENTRY_MAX_BYTES = 2048;
 const PROPOSE_KINDS = ["fact", "preference", "note"];
 
-export type PolicyView = { agentId: bigint; origin: string; labels: string[]; scope: GrantScope; exp: number; active: boolean; seq: bigint };
+/** `auto`: the owner opted in to auto-save for this agent (provenance.md P27-P36). */
+export type PolicyView = { agentId: bigint; origin: string; labels: string[]; scope: GrantScope; exp: number; active: boolean; seq: bigint; auto?: boolean };
 export type LogView = {
   agentId: bigint; origin: string; q: string; mode: "relevant" | "full" | "write"; refs: { label: string; seq: bigint }[];
   n: number; round: number; t: number; seq: bigint;
@@ -72,12 +73,12 @@ export type LogView = {
 export type RecalledAnyEntry = {
   kind: string; text: string; t: number; src?: { agent: string }; seq: bigint; epoch: bigint; byOwner: boolean; agentId: bigint; txHash: Hex;
   /** On agent proposals (contracts/provenance.md). */
-  review?: "pending" | "confirmed" | "rejected";
+  review?: "pending" | "confirmed" | "rejected" | "auto";
   /** On the owner's confirmed copy of a proposal: the proposing agent. */
   confirmedFrom?: string;
 };
 export type Proposal = { label: string; seq: bigint; kind: string; text: string; t: number; agentId: bigint; txHash: Hex; flagged: boolean };
-type ReviewView = { action: "confirm" | "reject"; agent: string; copy?: string; seq: bigint };
+type ReviewView = { action: "confirm" | "reject" | "auto"; agent: string; copy?: string; seq: bigint };
 /** Every review record seen, keyed `${recordSeq}|${label}:${seq}` (a batch record covers several targets). */
 type ReviewRec = ReviewView & { target: string };
 type Reviews = {
@@ -620,7 +621,7 @@ export class OwnerSession {
   }
 
   /** Approves an agent for Disclosure mode: an encrypted policy entry, no onchain grant, no key leaves the vault. */
-  async approve(agentId: bigint, opts: { origin: string; labels: string[]; scope: GrantScope; expiresInSec: number }) {
+  async approve(agentId: bigint, opts: { origin: string; labels: string[]; scope: GrantScope; expiresInSec: number; auto?: boolean }) {
     return traced(this.log, "owner", "approve", { agentId, scope: opts.scope }, async () => {
       this.touch();
       assertAgentId(agentId);
@@ -630,6 +631,8 @@ export class OwnerSession {
         fail("INPUT_INVALID", "labels must be 1..8 unique, non-reserved folder labels");
       }
       if (opts.scope !== "read" && opts.scope !== "readwrite") fail("INPUT_INVALID", "scope must be read or readwrite");
+      if (opts.auto !== undefined && typeof opts.auto !== "boolean") fail("INPUT_INVALID", "auto must be a boolean");
+      if (opts.auto && opts.scope !== "readwrite") fail("INPUT_INVALID", "auto-save needs a readwrite approval"); // P27
       if (!Number.isSafeInteger(opts.expiresInSec) || opts.expiresInSec <= 0 || opts.expiresInSec > MAX_EXPIRY_SEC) {
         fail("INPUT_INVALID", "expiresInSec must be 1..31536000 (365 days)");
       }
@@ -637,7 +640,7 @@ export class OwnerSession {
       return this.inPolicyOrder(async () => {
         await this.freshCeremony(); // approving shares data: same prompt rule as grant (sdk.md "Session scoping")
         const exp = this.#clock() + opts.expiresInSec * 1000;
-        const r = await this.writePolicy({ agentId, origin, labels, scope: opts.scope, exp, active: true });
+        const r = await this.writePolicy({ agentId, origin, labels, scope: opts.scope, exp, active: true, ...(opts.auto ? { auto: true } : {}) });
         // A later approval lifts an earlier revoke; an earlier one never lifts a later revoke (D36).
         if ((this.#revokedAt.get(agentId.toString()) ?? -1) < ticket) this.#revokedAt.delete(agentId.toString());
         return r;
@@ -695,7 +698,7 @@ export class OwnerSession {
 
   private async writePolicy(p: Omit<PolicyView, "seq">) {
     const bytes = crypto(() =>
-      encodeEntryV2({ v: 2, t: this.#clock(), kind: "policy", agent: p.agentId.toString(), origin: p.origin, labels: p.labels, scope: p.scope, exp: p.exp, active: p.active }),
+      encodeEntryV2({ v: 2, t: this.#clock(), kind: "policy", agent: p.agentId.toString(), origin: p.origin, labels: p.labels, scope: p.scope, exp: p.exp, active: p.active, ...(p.auto ? { auto: true as const } : {}) }),
     );
     const r = await this.appendPlain(POLICY_LABEL, bytes);
     const cache = this.#policyCache ?? { at: this.#clock(), byAgent: new Map() };
@@ -723,7 +726,7 @@ export class OwnerSession {
     const fromDoc = (d: Doc): PolicyView | undefined => {
       if (d.doc.v !== 2 || d.doc.kind !== "policy" || !d.byOwner) return undefined;
       const x = d.doc;
-      return { agentId: BigInt(x.agent), origin: x.origin, labels: x.labels, scope: x.scope, exp: x.exp, active: x.active, seq: d.seq };
+      return { agentId: BigInt(x.agent), origin: x.origin, labels: x.labels, scope: x.scope, exp: x.exp, active: x.active, seq: d.seq, ...(x.auto ? { auto: true } : {}) };
     };
     for (const d of docs) {
       const v = fromDoc(d);
@@ -744,7 +747,7 @@ export class OwnerSession {
         const v = fromDoc(onchain);
         this.#primed.delete(agent); // confirmed or contradicted: either way the chain now speaks for it
         drop = !v || v.agentId.toString() !== agent || v.origin !== p.origin || v.scope !== p.scope || v.exp !== p.exp ||
-          v.active !== p.active || JSON.stringify(v.labels) !== JSON.stringify(p.labels); // D45
+          v.active !== p.active || !!v.auto !== !!p.auto || JSON.stringify(v.labels) !== JSON.stringify(p.labels); // D45, P36
       } else if (!read.missingSeqs.includes(p.seq)) {
         // Not onchain and not lagging: drop at once if a revoke is visible (D44), else after the grace (D46).
         const revoked = docs.some((d) => { const v = fromDoc(d); return !!v && v.agentId.toString() === agent && !v.active; });
@@ -796,11 +799,12 @@ export class OwnerSession {
     if (typeof p.exp !== "number" || !Number.isFinite(p.exp)) bad("exp must be a finite number of milliseconds");
     if (typeof p.active !== "boolean") bad("active must be a boolean");
     if (typeof p.seq !== "bigint" || p.seq < 0n) bad("seq must be a non-negative bigint");
+    if (p.auto !== undefined && typeof p.auto !== "boolean") bad("auto must be a boolean");
     // A stale cache time makes the next read refresh from the source; the merge keeps this entry unless newer.
     const cache = this.#policyCache ?? { at: Number.NEGATIVE_INFINITY, byAgent: new Map<string, PolicyView>() };
     const prev = cache.byAgent.get(p.agentId.toString());
     if (!prev || prev.seq < p.seq) {
-      const copy = { agentId: p.agentId, origin: p.origin, labels: [...p.labels], scope: p.scope, exp: p.exp, active: p.active, seq: p.seq };
+      const copy = { agentId: p.agentId, origin: p.origin, labels: [...p.labels], scope: p.scope, exp: p.exp, active: p.active, seq: p.seq, ...(p.auto ? { auto: true } : {}) };
       cache.byAgent.set(p.agentId.toString(), copy);
       this.#primed.set(p.agentId.toString(), { p: copy, at: this.#clock() });
     }
@@ -861,9 +865,13 @@ export class OwnerSession {
           // Only the owner's own appends count as the owner's; `src` is trusted only on those (D31, D32). Any agent's
           // writes reach that agent alone until the owner reviews them: confirmed ones live on as the owner's copy,
           // rejected ones are gone (quarantine, D19; provenance.md P3, P4, P6).
+          const verdict = reviews.latest.get(`${label}:${d.seq}`);
           if (w === "owner") {
             if (!reviews.copies.get(`${label}:${d.seq}`)?.hidden) candidates.push({ kind: x.kind, text: x.text, by: "owner", t: x.t, seq: d.seq, label }); // P18
-          } else if (w === me && !reviews.latest.has(`${label}:${d.seq}`)) {
+          } else if (verdict?.action === "auto") {
+            // Auto-saved by the owner's opt-in: the owner's memory for every approved agent until rejected (P30).
+            candidates.push({ kind: x.kind, text: x.text, by: "owner", t: x.t, seq: d.seq, label });
+          } else if (w === me && !verdict) {
             candidates.push({ kind: x.kind, text: x.text, by: "self", t: x.t, seq: d.seq, label });
           }
         }
@@ -890,7 +898,7 @@ export class OwnerSession {
   }
 
   /** Writes an agent's proposal into an approved folder as the owner, tagged with its source (v2, D17). */
-  async propose(agentId: bigint, origin: string, entry: { kind: EntryKind; text: string; label?: string }): Promise<{ seq: bigint; txHash: Hex }> {
+  async propose(agentId: bigint, origin: string, entry: { kind: EntryKind; text: string; label?: string }): Promise<{ seq: bigint; txHash: Hex; auto: boolean }> {
     return traced(this.log, "owner", "propose", { agentId }, async () => {
       this.touch();
       const policy = await this.checkedPolicy(agentId, origin);
@@ -904,7 +912,19 @@ export class OwnerSession {
       const bytes = crypto(() => encodeEntryV2({ v: 2, t: this.#clock(), kind: entry.kind, text, src: { agent: agentId.toString() } }));
       const r = await this.appendPlain(label, bytes);
       this.queueLog({ agentId, origin, q: "", mode: "write", refs: [{ label, seq: r.seq }], n: 1, round: 0 });
-      return r;
+      // Auto-save (P29, P31): only with the owner's opt-in, and never for text that reads like an instruction.
+      let auto = false;
+      if (policy.auto && autoSaveAllowed(text)) { // AS-1: a strict gate, not the warning heuristic
+        try {
+          const target = { l: label, s: r.seq.toString() };
+          const rec = await this.appendPlain(REVIEW_LABEL, crypto(() => encodeEntryV2({ v: 2, t: this.#clock(), kind: "review", target, agent: agentId.toString(), action: "auto" })));
+          this.rememberReview({ target: `${label}:${r.seq}`, action: "auto", agent: agentId.toString(), seq: rec.seq });
+          auto = true;
+        } catch {
+          // The proposal is saved; without the auto record it simply waits for review (the safe default).
+        }
+      }
+      return { ...r, auto };
     });
   }
 
@@ -1016,7 +1036,7 @@ export class OwnerSession {
           continue;
         }
         const r = reviews.latest.get(`${label}:${d.seq}`);
-        const review = !r ? "pending" : r.action === "confirm" ? "confirmed" : "rejected";
+        const review = !r ? "pending" : r.action === "confirm" ? "confirmed" : r.action === "auto" ? "auto" : "rejected";
         // `src` is trusted only on the owner's own appends; an agent-appended entry is credited to its writer (D32).
         entries.push({ kind: x.kind, text: x.text, t: x.t, ...(d.byOwner && x.src ? { src: x.src } : {}), ...meta, review });
       }
@@ -1062,7 +1082,7 @@ export class OwnerSession {
   }
 
   /** All pending proposals (no cap), excluding duplicates of the owner's own memories in the same folder (P22). */
-  private async pendingProposals(labels: string[]): Promise<Proposal[]> {
+  private async pendingProposals(labels: string[], includeAuto = false): Promise<Proposal[]> {
     const reviews = await this.loadReviews();
     const out: Proposal[] = [];
     for (const label of [...new Set(labels)].filter((l) => typeof l === "string" && LABEL_RE.test(l) && !l.startsWith("engram-"))) {
@@ -1077,7 +1097,8 @@ export class OwnerSession {
       }
       for (const d of read.docs) {
         const w = writerOf(d);
-        if (!w || w === "owner" || reviews.latest.has(`${label}:${d.seq}`)) continue;
+        const verdict = reviews.latest.get(`${label}:${d.seq}`);
+        if (!w || w === "owner" || (verdict && !(includeAuto && verdict.action === "auto"))) continue;
         const x = d.doc as { kind: string; text: string; t: number };
         if (ownTexts.has(norm(x.text))) continue; // already the owner's memory
         out.push({ label, seq: d.seq, kind: x.kind, text: x.text, t: x.t, agentId: BigInt(w), txHash: d.txHash, flagged: looksLikeInstruction(x.text) });
@@ -1172,7 +1193,8 @@ export class OwnerSession {
         if (e instanceof EngramError && e.code === "INPUT_INVALID") return undefined; // no approval: nothing to revoke
         throw e;
       });
-      const mine = (await this.pendingProposals(labels)).filter((p) => p.agentId === agentId);
+      // Pending and auto-saved alike: one tap undoes everything this agent put in (P33).
+      const mine = (await this.pendingProposals(labels, true)).filter((p) => p.agentId === agentId);
       // Batched records (P20): a flood of proposals costs a few relays, never one each (PR-3).
       let rejected = 0;
       while (rejected < mine.length) {

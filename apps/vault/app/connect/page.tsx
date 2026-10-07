@@ -52,6 +52,8 @@ function Consent() {
   const [bad, setBad] = useState<string | null>(null);
   const [phase, setPhase] = useState<"review" | "granting" | "done">("review");
   const [retrying, setRetrying] = useState<string | null>(null);
+  // Auto-save: opt-in, off by default, readwrite apps only (simple-flow.md D, provenance.md P27-P36).
+  const [autoSave, setAutoSave] = useState(false);
   const replied = useRef(false);
 
   const reply = (msg: Parameters<typeof replyToOpener>[2]) => {
@@ -90,7 +92,7 @@ function Consent() {
       // identity and must ask this vault (through /bridge) for each answer (contracts/disclosure.md D1, D2).
       // Network trouble is retried here (simple-flow.md C18); passkey and rule errors are not.
       const r = await run((x) =>
-        withRetry(() => x.approve(req.agentId, { origin: req.origin, labels: req.labels, scope: req.scope, expiresInSec: req.expiresInSec }), {
+        withRetry(() => x.approve(req.agentId, { origin: req.origin, labels: req.labels, scope: req.scope, expiresInSec: req.expiresInSec, ...(autoSave && req.scope === "readwrite" ? { auto: true } : {}) }), {
           onRetry: (n, of) => setRetrying(`Network trouble, retrying (${n}/${of})…`),
         }),
       );
@@ -104,7 +106,7 @@ function Consent() {
       reply({ ok: true, owner: r.pairwiseOwner, granted: req.labels, sessionProof: proof, mode: "disclosure" });
       setPhase("done");
       // Hand over the approval with its seq too, so the strip answers before the indexer catches up (HO-2).
-      await handOff(s, req.agentId, { agentId: req.agentId, origin: req.origin, labels: req.labels, scope: req.scope, exp: r.exp, active: true, seq: r.seq });
+      await handOff(s, req.agentId, { agentId: req.agentId, origin: req.origin, labels: req.labels, scope: req.scope, exp: r.exp, active: true, seq: r.seq, ...(autoSave && req.scope === "readwrite" ? { auto: true } : {}) });
       setTimeout(() => window.close(), 400);
       return;
     }
@@ -189,6 +191,15 @@ function Consent() {
             </Row>
           </div>
 
+          {req.mode === "disclosure" && req.scope === "readwrite" ? (
+            <label className="paper-card mt-4 flex cursor-pointer items-start gap-3 p-4 text-sm">
+              <input type="checkbox" className="mt-1 h-5 w-5 accent-[#8f73ff]" checked={autoSave} onChange={(e) => setAutoSave(e.target.checked)} />
+              <span>
+                <span className="font-bold">Let {name} save without asking me</span>
+                <span className="block text-ink-soft">Only short, plain facts about you are saved right away, so your other apps can use them. Anything else waits for you. You can undo any of it.</span>
+              </span>
+            </label>
+          ) : null}
           {!req.originVerified ? (
             <p className="mt-4 rounded-[14px] border-[3px] border-ink bg-danger-soft px-3 py-2 text-sm font-medium">
               The agent&apos;s public card does not list {req.origin}. Only continue if you opened this from an app you trust.
@@ -208,7 +219,7 @@ function Consent() {
                 New here? Create a vault and approve
               </button>
             ) : null}
-            <button className="mt-1 self-center text-sm font-bold underline underline-offset-4" onClick={deny} disabled={phase === "granting"}>
+            <button className="mt-1 self-center px-4 py-2.5 text-sm font-bold underline underline-offset-4" onClick={deny} disabled={phase === "granting"}>
               Deny
             </button>
           </div>

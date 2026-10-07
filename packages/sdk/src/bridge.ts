@@ -21,7 +21,7 @@ const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof
 /** What the vault's own bridge UI shows live (never sent to the app). */
 export type BridgeEvent =
   | { op: "disclose"; ok: true; query: string; mode: DisclosureMode; entries: DisclosedEntry[] }
-  | { op: "propose"; ok: true; text: string; seq: bigint }
+  | { op: "propose"; ok: true; text: string; seq: bigint; auto: boolean }
   | { op: "disclose" | "propose"; ok: false; code: string };
 
 export function startBridge(opts: {
@@ -60,7 +60,7 @@ export function startBridge(opts: {
           return reply({ ok: true, entries: r.entries, mode: r.mode });
         }
         const r = await s.propose(opts.agentId, origin, { kind: a.kind as never, text: a.text as string, label: a.label as string | undefined });
-        emit({ op: "propose", ok: true, text: String(a.text), seq: r.seq });
+        emit({ op: "propose", ok: true, text: String(a.text), seq: r.seq, auto: r.auto });
         return reply({ ok: true, receipt: String(++receipts) });
       } catch (err) {
         const code = err instanceof EngramError ? (err.code === "SESSION_EXPIRED" || err.code === "SESSION_ENDED" ? "VAULT_LOCKED" : err.code) : "BAD_REQUEST";

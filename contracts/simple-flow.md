@@ -135,6 +135,9 @@ reads). Never retried: passkey cancel/mismatch, `INPUT_INVALID`, `RELAY_REJECTED
 | C24 | revoke right after approving, before the policy write landed | the outbox drops the approval and writes the revoke (latest wins, D36) | |
 
 ## D. Review without a trip, auto-save as an opt-in
+
+Built 2026-10-08: the opt-in switch, `auto` records, Undo and reject-all coverage (provenance.md P27-P38). Not built:
+the `/review` popup (agreed cut); review happens in the vault's Review tab, which opens with no prompt (B).
 Agent writes stay suggestions until the user confirms them (provenance.md), so one bad app cannot feed made-up
 details to the others. What changes is the cost of confirming: the vault strip in the app shows "N to review", which
 opens a **top-level vault popup** (`/review?agentId=N`), unlocked from the stored session with no prompt, listing that

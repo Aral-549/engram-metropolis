@@ -136,6 +136,6 @@ excluded and keep their warning). Closes itself when the list is empty.
 - [x] Reviewed by a human (2026-10-07: "approved, start building") (a static mockup of the Sage screen and landing hero is provided for this review)
 - [x] Implementation matches this contract (2026-10-08) for the agent chat page, vault landing, connect popup, vault
   strip and shared tokens/fonts; the vault dashboard got tokens and fonts only (agreed cut). Not built: the review
-  popup (agreed cut), the Apps tab merge of the read log (U14), U13's "Saved by Sage automatically" (auto-save not built)
+  popup (agreed cut), the Apps tab merge of the read log (U14), U13's merged layout (the dashboard keeps its tabs; "Saved by Sage automatically" with Undo is built)
 - [x] Browser checks in tests/e2e/ui.e2e.spec.ts: U7, U8, U10, U19, U25, U26, U27, U28 pass against the dev servers.
   U3, U4, U16, U20-U23 are exercised by tests/e2e/agents.e2e.spec.ts, which needs the KIMI env to run

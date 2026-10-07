@@ -52,3 +52,16 @@ export function looksLikeInstruction(text: string): boolean {
   }
   return false;
 }
+
+// ---------------------------------------------------------------------------- auto-save gate (BUGLOG AS-1)
+// Stricter than looksLikeInstruction, because it decides what spreads to every approved agent without the owner
+// looking (contracts/provenance.md P37, P38). Anything that is not a short plain fact waits for review.
+const STEER = /\b(you|your|assistants?|agents?|ais?|models?|bots?|chatbots?|planners?|apps?|system|prompts?|instructions?|recommend\w*|suggest\w*|tell|share|mention|links?|book|buy|always|never|must|should|whenever|every)\b|from now on|when asked/i;
+const DOMAIN = /[a-z0-9-]+\.[a-z]{2,}(\/|\b)/i;
+
+export function autoSaveAllowed(text: string): boolean {
+  if (typeof text !== "string") return false;
+  const t = text.trim();
+  if (!t || [...t].length > 200) return false;
+  return !looksLikeInstruction(t) && !STEER.test(t) && !DOMAIN.test(t);
+}

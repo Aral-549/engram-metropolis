@@ -69,7 +69,7 @@ function Strip() {
     };
     const onEvent = (e: BridgeEvent) => {
       if (!e.ok) return push(e.code === "RATE_LIMITED" ? "Paused: this app asked too often" : `Refused: ${e.code.toLowerCase().replaceAll("_", " ")}`, "error");
-      if (e.op === "propose") return push(`Saved for you, waiting for your review: ${e.text}`, "write");
+      if (e.op === "propose") return push(e.auto ? `Saved automatically: ${e.text}` : `Saved for you, waiting for your review: ${e.text}`, "write");
       if (!e.entries.length) return push(e.mode === "full" ? "Asked for everything, but there's nothing to share yet" : "Asked, nothing relevant shared", "empty");
       push(`${e.mode === "full" ? "Full read" : "Shared"} ${e.entries.length}: ${e.entries.map((x) => x.text).join("; ")}`, "read");
     };

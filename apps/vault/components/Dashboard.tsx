@@ -197,7 +197,7 @@ function MemoryView() {
         {spaces && entries.length === 0 ? <li className="text-ink-soft">Nothing in {active} yet.</li> : null}
         {/* Reviewed proposals are hidden: a confirmed one lives on as your copy, a rejected one is gone. */}
         {entries.filter((e) => e.review !== "confirmed" && e.review !== "rejected").map((e, i) => (
-          <MemoryCard key={`${e.seq}`} entry={e} delay={i * 45} />
+          <MemoryCard key={`${e.seq}`} entry={e} delay={i * 45} label={active} onChanged={() => void load()} />
         ))}
       </ul>
       {current && !current.complete ? (
@@ -207,7 +207,16 @@ function MemoryView() {
   );
 }
 
-function MemoryCard({ entry, delay }: { entry: RecalledAnyEntry; delay: number }) {
+function MemoryCard({ entry, delay, label, onChanged }: { entry: RecalledAnyEntry; delay: number; label: string; onChanged: () => void }) {
+  const { run } = useSession();
+  const [undoing, setUndoing] = useState(false);
+  // Undo an auto-saved memory: a reject record, which removes it from every app (provenance.md P32).
+  async function undo() {
+    setUndoing(true);
+    const r = await run((s) => s.review({ label, seq: entry.seq, action: "reject" }));
+    setUndoing(false);
+    if (r) onChanged();
+  }
   // Disclosure-mode proposals are written by the vault (byOwner) on an agent's behalf: credit the agent (src).
   const writer = entry.src ? entry.src.agent : entry.byOwner ? null : entry.agentId.toString();
   const cards = useAgentCards([writer, entry.confirmedFrom].filter((x): x is string => !!x));
@@ -218,8 +227,15 @@ function MemoryCard({ entry, delay }: { entry: RecalledAnyEntry; delay: number }
       <p className="text-lg leading-[1.8rem]">{entry.text}</p>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-ink-soft">
         <span className={writer ? "text-seal" : ""}>
-          {!writer ? (entry.confirmedFrom ? `Confirmed from ${confirmedName}` : "Written by you") : `Proposed by ${author}, waiting for your review`}
+          {!writer
+            ? entry.confirmedFrom ? `Confirmed from ${confirmedName}` : "Written by you"
+            : entry.review === "auto" ? `Saved by ${author} automatically` : `Proposed by ${author}, waiting for your review`}
         </span>
+        {writer && entry.review === "auto" ? (
+          <button className="font-sans text-xs font-bold text-ink underline underline-offset-2" onClick={() => void undo()} disabled={undoing}>
+            {undoing ? "Undoing…" : "Undo"}
+          </button>
+        ) : null}
         <span>{entry.kind}</span>
         <span>{relativeTime(entry.t)}</span>
         <a href={txUrl(entry.txHash)} target="_blank" rel="noreferrer" className="underline decoration-rule underline-offset-2 hover:text-ink">

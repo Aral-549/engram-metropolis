@@ -6,7 +6,8 @@ import { utf8 } from "./encoding.js";
 import { parseEntry, type Entry, type EntryKind } from "./entry.js";
 
 export type MemoryEntryV2 = { v: 2; t: number; kind: EntryKind; text: string; src: { agent: string } };
-export type PolicyEntry = { v: 2; t: number; kind: "policy"; agent: string; origin: string; labels: string[]; scope: "read" | "readwrite"; exp: number; active: boolean };
+/** `auto` (auto-save, provenance.md P27-P36) is present only when true. */
+export type PolicyEntry = { v: 2; t: number; kind: "policy"; agent: string; origin: string; labels: string[]; scope: "read" | "readwrite"; exp: number; active: boolean; auto?: true };
 export type LogEntry = {
   v: 2; t: number; kind: "log"; agent: string; origin: string; q: string; mode: "relevant" | "full" | "write";
   refs: { l: string; s: string }[]; n: number; round: number;
@@ -17,7 +18,8 @@ export type LogsEntry = { v: 2; t: number; kind: "logs"; items: LogItem[] };
 /** The owner's verdict on one agent proposal (contracts/provenance.md). `copy` is the confirmed copy's seq. */
 export type ReviewEntry =
   | { v: 2; t: number; kind: "review"; target: { l: string; s: string }; agent: string; action: "confirm"; copy: string }
-  | { v: 2; t: number; kind: "review"; target: { l: string; s: string }; agent: string; action: "reject" };
+  | { v: 2; t: number; kind: "review"; target: { l: string; s: string }; agent: string; action: "reject" }
+  | { v: 2; t: number; kind: "review"; target: { l: string; s: string }; agent: string; action: "auto" };
 /** Batched rejections (provenance.md P20): one record for up to 50 proposals of one agent. */
 export type ReviewsEntry = { v: 2; t: number; kind: "reviews"; agent: string; action: "reject"; targets: { l: string; s: string }[] };
 export type EntryV2 = MemoryEntryV2 | PolicyEntry | LogEntry | LogsEntry | ReviewEntry | ReviewsEntry;
@@ -68,7 +70,9 @@ function canonicalV2(d: unknown): EntryV2 | string {
     return { v: 2, t: s.t as number, kind: s.kind as EntryKind, text: s.text as string, src: { agent: src.agent as string } };
   }
   if (s.kind === "policy") {
-    if (!sameKeys(s, ["v", "t", "kind", "agent", "origin", "labels", "scope", "exp", "active"])) return "policy has wrong keys";
+    const hasAuto = Object.hasOwn(s, "auto");
+    if (!sameKeys(s, ["v", "t", "kind", "agent", "origin", "labels", "scope", "exp", "active", ...(hasAuto ? ["auto"] : [])])) return "policy has wrong keys";
+    if (hasAuto && s.auto !== true) return "auto is present only as true";
     if (!decimal(s.agent)) return "agent must be a decimal uint256";
     if (!exactOrigin(s.origin)) return "origin must be an exact http(s) origin";
     const labels = Array.isArray(s.labels) ? [...s.labels] : null;
@@ -78,7 +82,7 @@ function canonicalV2(d: unknown): EntryV2 | string {
     if (s.scope !== "read" && s.scope !== "readwrite") return "scope must be read or readwrite";
     if (!nonNegInt(s.exp)) return "exp must be a non-negative integer (unix ms)";
     if (typeof s.active !== "boolean") return "active must be a boolean";
-    return { v: 2, t: s.t as number, kind: "policy", agent: s.agent as string, origin: s.origin as string, labels: labels as string[], scope: s.scope, exp: s.exp as number, active: s.active };
+    return { v: 2, t: s.t as number, kind: "policy", agent: s.agent as string, origin: s.origin as string, labels: labels as string[], scope: s.scope, exp: s.exp as number, active: s.active, ...(hasAuto ? { auto: true as const } : {}) };
   }
   if (s.kind === "reviews") {
     if (!sameKeys(s, ["v", "t", "kind", "agent", "action", "targets"])) return "reviews has wrong keys";
@@ -97,7 +101,7 @@ function canonicalV2(d: unknown): EntryV2 | string {
   if (s.kind === "review") {
     const confirm = s.action === "confirm";
     if (!sameKeys(s, confirm ? ["v", "t", "kind", "target", "agent", "action", "copy"] : ["v", "t", "kind", "target", "agent", "action"])) return "review has wrong keys";
-    if (!confirm && s.action !== "reject") return "action must be confirm or reject";
+    if (!confirm && s.action !== "reject" && s.action !== "auto") return "action must be confirm, reject or auto";
     const tg = isObj(s.target) ? { ...s.target } : null;
     if (!tg || !sameKeys(tg, ["l", "s"]) || !label(tg.l) || !decimal(tg.s)) return "target must be {l: label, s: decimal seq}";
     if (!decimal(s.agent)) return "agent must be a decimal uint256";
@@ -106,7 +110,7 @@ function canonicalV2(d: unknown): EntryV2 | string {
       if (!decimal(s.copy)) return "copy must be a decimal seq";
       return { v: 2, t: s.t as number, kind: "review", target, agent: s.agent as string, action: "confirm", copy: s.copy as string };
     }
-    return { v: 2, t: s.t as number, kind: "review", target, agent: s.agent as string, action: "reject" };
+    return { v: 2, t: s.t as number, kind: "review", target, agent: s.agent as string, action: s.action === "auto" ? "auto" : "reject" };
   }
   if (s.kind === "logs") {
     if (!sameKeys(s, ["v", "t", "kind", "items"])) return "logs has wrong keys";

@@ -64,6 +64,7 @@ test("U8 U27 landing: both model links and Open my vault above the fold at 1440x
 
 test("U26 landing: the illustration plays at most twice", async ({ page }) => {
   await page.goto(VAULT);
+  await expect(page.getByRole("button", { name: "Open my vault" })).toBeVisible(); // past "Opening your vault…"
   const stage = await page.evaluate(() =>
     [...document.querySelectorAll(".stage *")].flatMap((el) => el.getAnimations().map((a) => (a.effect as KeyframeEffect).getTiming().iterations)));
   expect(stage.length).toBeGreaterThan(0);
@@ -86,4 +87,37 @@ test("U10 keyboard focus is visible on the landing", async ({ page }) => {
   const s = await page.evaluate(() => { const a = document.activeElement as HTMLElement; return { inMain: !!a.closest("main"), outline: getComputedStyle(a).outlineStyle }; });
   expect(s.inMain).toBe(true);
   expect(s.outline).not.toBe("none");
+});
+
+const CONNECT = `${VAULT}connect?v=1&agentId=1965&labels=preferences&scope=readwrite&expiresInSec=604800&mode=disclosure&origin=${encodeURIComponent("http://localhost:3201")}`;
+
+test("U7 U11 connect popup: no sideways scroll at 390 px; Approve and Deny present; auto-save off by default", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(CONNECT);
+  await expect(page.getByText("wants to read part of your memory")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await expect(page.getByRole("button", { name: "Deny" })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /save without asking me/ })).not.toBeChecked();
+});
+
+test("U12 connect popup: an origin the agent card does not list keeps its warning above Approve", async ({ page }) => {
+  await page.goto(CONNECT);
+  const warn = page.getByText(/does not list http:\/\/localhost:3201/);
+  await expect(warn).toBeVisible();
+  const approve = page.getByRole("button", { name: /approve/i }).first();
+  expect((await warn.boundingBox())!.y).toBeLessThan((await approve.boundingBox())!.y);
+});
+
+test("U19 U25 connect popup: copy rules and target sizes", async ({ page }) => {
+  await page.goto(CONNECT);
+  await expect(page.getByText("wants to read part of your memory")).toBeVisible();
+  const t = await visibleText(page, "footer");
+  for (const w of FORBIDDEN) expect(t, String(w)).not.toMatch(w);
+  const small = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>("main button, main a, main label")]
+      .filter((el) => el.offsetParent !== null)
+      .map((el) => ({ t: (el.textContent ?? "").trim().slice(0, 30), r: el.getBoundingClientRect() }))
+      .filter(({ r }) => r.height < 24 || r.width < 24)
+      .map(({ t, r }) => `${t} ${Math.round(r.width)}x${Math.round(r.height)}`));
+  expect(small).toEqual([]);
 });
