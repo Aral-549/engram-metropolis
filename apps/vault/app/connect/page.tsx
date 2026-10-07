@@ -8,6 +8,7 @@ import { Seal } from "@/components/Seal";
 import { SessionProvider, useSession } from "@/components/SessionProvider";
 import { agentCard } from "@/components/useAgentCards";
 import { HANDOFF_TYPE, sendHandoff } from "@/lib/handoff";
+import { withRetry } from "@/lib/retry";
 
 /**
  * Unlocks the app's vault strip with this session (contracts/simple-flow.md C). Retries every 250 ms for 3 s in case
@@ -50,6 +51,7 @@ function Consent() {
   const [card, setCard] = useState<AgentCard | null>(null);
   const [bad, setBad] = useState<string | null>(null);
   const [phase, setPhase] = useState<"review" | "granting" | "done">("review");
+  const [retrying, setRetrying] = useState<string | null>(null);
   const replied = useRef(false);
 
   const reply = (msg: Parameters<typeof replyToOpener>[2]) => {
@@ -86,7 +88,13 @@ function Consent() {
     if (req.mode === "disclosure") {
       // Disclosure mode: no key leaves the vault. An encrypted approval is written; the app gets a pairwise
       // identity and must ask this vault (through /bridge) for each answer (contracts/disclosure.md D1, D2).
-      const r = await run((x) => x.approve(req.agentId, { origin: req.origin, labels: req.labels, scope: req.scope, expiresInSec: req.expiresInSec }));
+      // Network trouble is retried here (simple-flow.md C18); passkey and rule errors are not.
+      const r = await run((x) =>
+        withRetry(() => x.approve(req.agentId, { origin: req.origin, labels: req.labels, scope: req.scope, expiresInSec: req.expiresInSec }), {
+          onRetry: (n, of) => setRetrying(`Network trouble, retrying (${n}/${of})…`),
+        }),
+      );
+      setRetrying(null);
       const proof = r ? await run((x) => x.signAppSession({ agentId: req.agentId, origin: req.origin, ttlSec: Math.min(req.expiresInSec, 30 * 86400), pairwise: true })) : undefined;
       if (!r || !proof) {
         setPhase("review");
@@ -204,7 +212,8 @@ function Consent() {
               Deny
             </button>
           </div>
-          {error ? <p role="alert" className="mt-4 text-sm text-rust">{error}</p> : null}
+          {retrying ? <p role="status" className="mt-4 text-sm font-bold">{retrying}</p> : null}
+          {error && !retrying ? <p role="alert" className="mt-4 text-sm text-rust">{error}</p> : null}
         </>
       )}
     </Shell>

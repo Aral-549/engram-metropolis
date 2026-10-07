@@ -116,8 +116,17 @@ page never sees it.
 | C16 | Turn on memory in Wayfarer, 5 min after the passkey in C15 | the popup opens unlocked; Approve without a prompt | one prompt for the demo |
 | C17 | Turn on memory in a new app, 2 days later (vault restored from storage, no recent ceremony) | the popup opens unlocked; Approve asks for the passkey once | widening sharing keeps its check |
 | C17b | the popup's vault is locked (8 days later) | one passkey prompt unlocks it, and the same ceremony covers Approve | never two prompts in a row |
-| C18 | the network is down while approving | approval still completes; the bridge answers from the handed-over policy; the policy write waits in the bridge's outbox and is retried every 5 s, backing off to 60 s | no network step blocks connecting |
-| C19 | the Sage tab is closed before the policy write lands | the outbox is in the bridge's storage; the next load of Sage sends it | |
+| C18 | the relay, RPC or indexer fails while approving | the popup retries on its own (after 1, 2, 4, 8, 16 s) with a visible "Network trouble, retrying (n/5)" line; the chat in the app keeps working meanwhile; after 5 failures it shows "Couldn't save your approval. Check your connection and press Approve again." No passkey prompt on a retry within 10 min (C16) | amended 2026-10-08, see note |
+| C19 | (dropped 2026-10-08) | the approval is written by the popup, not queued in the strip | see note |
+
+**Note on C18/C19 (amended during the build, needs the reviewer's OK).** The first draft had the popup close
+without waiting for the chain and the strip write the approval later from an outbox. That conflicts with the HO-2/HO-3
+fix: the strip answers from the approval the popup hands over, and that approval is trusted only through its onchain
+`seq` (disclosure.md D39-D46). Without waiting, the seq is a guess; a wrong guess either brings HO-2 back (first
+message looks revoked) or weakens "a revoke always wins". On Monad the wait is about 1-2 s, so the popup keeps it and
+retries network failures instead. Retrying is safe: a second write of the same approval is just the newest one.
+Retryable: `RELAYER_UNAVAILABLE`, `SOURCE_UNAVAILABLE`, and errors that are not Engram errors (network failures in
+reads). Never retried: passkey cancel/mismatch, `INPUT_INVALID`, `RELAY_REJECTED`, `TX_REVERTED`, `RATE_LIMITED`.
 | C20 | the app page's own script listens for `message` events | it never receives `prf` or `policy` | the secret stays on the vault origin |
 | C21 | unlock message from another origin, or for another agentId | ignored | |
 | C21b | unlock message carrying `policy` (the approval just written, with `seq`) | the bridge primes its session with it (disclosure.md D39); a `policy` that is not an object, or names another agent, makes the whole message ignored | HO-2 |
