@@ -285,8 +285,8 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Symptom:** found by reading `apps/agent/lib/server.ts` `clientOf` in the AN adversarial pass: it used the first `x-forwarded-for` entry.
 - **Root cause:** behind proxies that append (Railway), the first entry is whatever the client sent, so each request could claim a new IP. Cost stayed bounded by the anonymous global cap (A38).
 - **Stage/module:** agent app API routes (`clientOf`)
-- **Regression case added:** none yet: the agent app has no route-level test harness. Pending; not counted as done.
-- **Status:** fixed, regression case open
+- **Regression case added:** `tests/golden/agent-kit/agent-kit.client-ip.golden.test.ts` (logic moved to `apps/agent/lib/client-ip.ts` so it is testable)
+- **Status:** fixed
 
 ## 2026-10-07 -- HO-1: handoff validation read inherited fields
 - **Symptom:** adversarial probe `tests/adversarial/vault/vault.device.adversarial.test.ts` ("non-Uint8Array secrets..."): an object whose `type` came from its prototype was accepted by `acceptHandoff`.
@@ -314,5 +314,5 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Symptom:** found by reading `apps/vault/app/resume/page.tsx` in the B2 adversarial pass: any error while reading the approval (network, RPC) ended in "This app isn't approved", which is false and would push users to re-approve.
 - **Root cause:** `run()` returns undefined both for "no approval" and for a failed call; the page treated both as a refusal.
 - **Stage/module:** vault resume popup
-- **Regression case added:** none yet: the vault pages have no component test harness; covered manually and by the e2e Resume step once the e2e suite can run. Not counted as done.
-- **Status:** fixed, regression case open
+- **Regression case added:** `tests/golden/vault/vault.resume2.golden.test.ts` (messages moved to `apps/vault/lib/resume.ts` `resumeMessage`)
+- **Status:** fixed

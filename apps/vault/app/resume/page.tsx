@@ -8,14 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { Seal } from "@/components/Seal";
 import { SessionProvider, useSession } from "@/components/SessionProvider";
 import { HANDOFF_TYPE } from "@/lib/handoff";
-import { resumeCheck } from "@/lib/resume";
+import { resumeCheck, resumeMessage } from "@/lib/resume";
 
-const REASONS: Record<string, string> = {
-  UNKNOWN_ORIGIN: "This request doesn't say which app it came from.",
-  NOT_APPROVED: "This app isn't approved. Open it and press Turn on memory.",
-  ORIGIN: "This app is approved for a different site, so nothing was shared.",
-  EXPIRED: "This app's approval has expired. Open it and press Turn on memory.",
-};
 
 function params(): { agentId: bigint | null; origin: string | null } {
   const q = new URL(window.location.href).searchParams;
@@ -40,14 +34,14 @@ function Resume() {
     void run(async (s) => ({ p: await s.approvalFor(agentId) })).then((got) => {
       if (!got) {
         started.current = false; // a network or vault error, not a refusal: let the user try again
-        setNote("Couldn't reach your vault just now. Close this window and press Resume again.");
+        setNote(resumeMessage({ ok: false, reason: "UNREACHABLE" }));
         return;
       }
       const p = got.p;
       const check = resumeCheck({ policy: p as PolicyView | undefined, agentId, origin, now: Date.now() });
       console.info(JSON.stringify({ stage: "vault", op: "resume", ok: check.ok, ...(check.ok ? {} : { code: check.reason }) }));
       if (!check.ok) {
-        setNote(REASONS[check.reason]!);
+        setNote(resumeMessage(check));
         return;
       }
       if (!session.credentialId) {

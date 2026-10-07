@@ -37,3 +37,15 @@ export function resumeUrl(vaultOrigin: string, agentId: bigint, appOrigin: strin
   u.searchParams.set("origin", appOrigin);
   return u.toString();
 }
+
+/** What the resume popup says. A failed lookup is never reported as a refusal (BUGLOG RS-1). */
+export function resumeMessage(r: ResumeResult | { ok: false; reason: "UNREACHABLE" }): string | null {
+  if (r.ok) return null;
+  switch (r.reason) {
+    case "UNREACHABLE": return "Couldn't reach your vault just now. Close this window and press Resume again.";
+    case "UNKNOWN_ORIGIN": return "This request doesn't say which app it came from.";
+    case "NOT_APPROVED": return "This app isn't approved. Open it and press Turn on memory.";
+    case "ORIGIN": return "This app is approved for a different site, so nothing was shared.";
+    case "EXPIRED": return "This app's approval has expired. Open it and press Turn on memory.";
+  }
+}
