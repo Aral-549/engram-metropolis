@@ -1,0 +1,5 @@
+{
+  "name": "Engram Desktop",
+  "description": "Your AI tool (Claude Code, Claude Desktop, Cursor) asking your vault through engram-mcp on your own computer. It holds no keys.",
+  "endpoints": [{ "name": "web", "endpoint": "http://127.0.0.1:7457" }]
+}
