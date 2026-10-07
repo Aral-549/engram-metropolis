@@ -97,6 +97,7 @@ The app page's own chat (anonymous conversation and "not saved yet" memories) al
 | C41 | anonymous chat, refresh / close the tab | refresh keeps the conversation; closing the tab deletes it | replaces C3's `localStorage` |
 | C42 | a bridge partition still holding a 7-day IndexedDB copy from an earlier build | deleted on load | migration |
 | C43 | the app tab stays open after "Lock" on the vault site | that tab's strip stays unlocked until the tab closes (the vault site cannot reach it); the next open needs Resume, which asks for the passkey | honest limit |
+| C44 | a browser that does not partition iframe storage (the strip and the vault site share IndexedDB) | the strip's tab copy and its cleanup use their own database (`engram-device-tab`), so they never read, overwrite or delete the vault site's 7-day copy (`engram-device`) | BUGLOG DS-1 |
 
 ## C. Connect in one step, without waiting for the chain
 The popup unlocks with the stored session or one passkey, then shows the approval. Approve asks for the passkey

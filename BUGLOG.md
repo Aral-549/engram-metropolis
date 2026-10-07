@@ -330,3 +330,10 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** sdk `OwnerSession.propose` (auto-save branch), sdk `instruction.ts`
 - **Regression cases added:** `tests/golden/disclosure/autosave2.golden.test.ts` -- cases P37, P38
 - **Status:** fixed (a conservative gate: anything that is not a short plain fact waits for review). Known limit: a payload phrased as a plain fact about the user ("the user's favourite brand is BrandX") is still auto-saved; that is the trade-off the owner opts into, and Undo / Reject all remove it.
+
+## 2026-10-08 -- DS-1: a vault strip's cleanup deleted the vault site's session
+- **Symptom:** live end-to-end run on the deployed apps (Playwright Chromium): after creating a vault in the connect popup, opening the vault site showed the landing page, not the vault. The popup's IndexedDB had the wrapping key but no session record.
+- **Root cause:** the strip's tab-only store (`tabKV`) deletes any long-lived `session` record in its IndexedDB (C42). It used the same database name as the vault site. In a browser that does not partition iframe storage, that database is the vault site's own, so the strip deleted the session the popup had just saved. Partitioned browsers (current Chrome, Safari, Firefox) were not affected; the design should not depend on it.
+- **Stage/module:** vault `lib/device.ts` (`tabKV`), `components/SessionProvider.tsx` (`device`)
+- **Regression case added:** `tests/golden/vault/vault.device3.golden.test.ts` -- case C44
+- **Status:** fixed

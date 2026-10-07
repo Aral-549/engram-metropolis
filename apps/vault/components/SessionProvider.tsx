@@ -5,7 +5,7 @@
 import { EngramOwner, type OwnerSession } from "@engram/sdk";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { explain, rpId, vaultConfig } from "@/lib/engram";
-import { STAY_MS, deviceStore, idbKV, memoryKV, tabKV, type DeviceStore, type KV } from "@/lib/device";
+import { STAY_MS, deviceFor, deviceStore, idbKV, memoryKV, type DeviceStore } from "@/lib/device";
 
 type Status = "restoring" | "signed-out" | "working" | "ready" | "locked";
 type Ctx = {
@@ -36,14 +36,14 @@ const shared = new Map<Scope, DeviceStore>();
 export function device(scope: Scope = "site"): DeviceStore {
   let s = shared.get(scope);
   if (!s) {
-    let kv: KV;
     try {
-      const idb = typeof indexedDB !== "undefined" ? idbKV() : memoryKV();
-      kv = scope === "tab" && typeof sessionStorage !== "undefined" ? tabKV({ session: sessionStorage, persistent: idb }) : idb;
+      s = deviceFor(scope, {
+        idb: (name) => (typeof indexedDB !== "undefined" ? idbKV(name) : memoryKV()),
+        session: typeof sessionStorage !== "undefined" ? sessionStorage : undefined,
+      });
     } catch {
-      kv = memoryKV(); // storage blocked: the session lasts one visit
+      s = deviceStore({ kv: memoryKV() }); // storage blocked: the session lasts one visit
     }
-    s = deviceStore({ kv });
     shared.set(scope, s);
   }
   return s;

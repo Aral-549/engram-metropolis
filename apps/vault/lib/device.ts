@@ -126,7 +126,7 @@ export function idbKV(dbName = "engram-device"): KV {
   };
 }
 
-type StorageLike = { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void };
+export type StorageLike = { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void };
 const SESSION_ITEM = "engram-session";
 const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
 const unb64 = (s: unknown) => (typeof s === "string" ? Uint8Array.from(atob(s), (c) => c.charCodeAt(0)) : undefined);
@@ -163,4 +163,16 @@ export function tabKV(o: { session: StorageLike; persistent: KV }): KV {
       await dropLegacy();
     },
   };
+}
+
+/**
+ * The store for one scope (BUGLOG DS-1). The vault site keeps its 7-day copy in `engram-device`; a strip keeps its
+ * tab copy (and does its cleanup) in `engram-device-tab`, so even a browser that does not partition iframe storage
+ * can never let a strip touch the vault site's session. Without sessionStorage a strip keeps nothing past the visit.
+ */
+export const SITE_DB = "engram-device";
+export const TAB_DB = "engram-device-tab";
+export function deviceFor(scope: "site" | "tab", o: { idb: (name: string) => KV; session?: StorageLike }): DeviceStore {
+  if (scope === "site") return deviceStore({ kv: o.idb(SITE_DB) });
+  return deviceStore({ kv: o.session ? tabKV({ session: o.session, persistent: o.idb(TAB_DB) }) : memoryKV() });
 }
