@@ -15,7 +15,7 @@ the stored session that keeps the vault tab unlocked to `contracts/simple-flow.m
 - Vault page `/link?port=7457#token=<t>`: the "desktop link" tab. It approves the desktop agent once, then acts as
   that agent's bridge over the link instead of over `postMessage`. It answers with the SDK's own `disclose` and
   `propose` (same selection, rate limits, logging and quarantine as the web bridge).
-- One ERC-8004 agent registered on Monad testnet for all MCP clients: "Engram Desktop" (id from `ENGRAM_AGENT_ID`,
+- One ERC-8004 agent registered on Monad testnet for all MCP clients: "Engram Desktop", #2070 (default; `ENGRAM_AGENT_ID` overrides,
   carried in the link URL). Approvals use the origin `http://127.0.0.1:<port>`. The read log shows "Engram Desktop"
   (the log format has no client field; changing it is a crypto format change, out of scope). The link page shows the
   client name from the MCP `initialize` request (e.g. "claude-code").

@@ -7,9 +7,10 @@ import { createEngramMcp, startLink } from "./index.js";
 const err = (s: string) => process.stderr.write(s + "\n");
 const log = (line: Record<string, unknown>) => err(JSON.stringify(line));
 
-const vault = (process.env.ENGRAM_VAULT_URL ?? "http://localhost:3100").replace(/\/$/, "");
+// Defaults: the live Metropolis vault and its "Engram Desktop" agent (#2070 on Monad testnet).
+const vault = (process.env.ENGRAM_VAULT_URL ?? "https://engram-vault.vercel.app").replace(/\/$/, "");
 const port = Number(process.env.ENGRAM_PORT ?? 7457);
-const agentRaw = process.env.ENGRAM_AGENT_ID ?? "0";
+const agentRaw = process.env.ENGRAM_AGENT_ID ?? "2070";
 
 async function main() {
   if (!/^(0|[1-9]\d{0,77})$/.test(agentRaw)) throw new Error("ENGRAM_AGENT_ID must be a decimal agent id");

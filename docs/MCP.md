@@ -17,7 +17,7 @@ git clone <this repo> engram && cd engram && npm install
 ### Claude Code
 
 ```sh
-claude mcp add engram -e ENGRAM_VAULT_URL=<vault url> -e ENGRAM_AGENT_ID=<agent id> -- node --import tsx /path/to/engram/packages/mcp/src/cli.ts
+claude mcp add engram -- node --import tsx /path/to/engram/packages/mcp/src/cli.ts
 ```
 
 ### Claude Desktop and Cursor
@@ -29,8 +29,7 @@ Add to `claude_desktop_config.json` (Claude Desktop) or `.cursor/mcp.json` (Curs
   "mcpServers": {
     "engram": {
       "command": "node",
-      "args": ["--import", "tsx", "/path/to/engram/packages/mcp/src/cli.ts"],
-      "env": { "ENGRAM_VAULT_URL": "<vault url>", "ENGRAM_AGENT_ID": "<agent id>" }
+      "args": ["--import", "tsx", "/path/to/engram/packages/mcp/src/cli.ts"]
     }
   }
 }
@@ -49,8 +48,8 @@ Add to `claude_desktop_config.json` (Claude Desktop) or `.cursor/mcp.json` (Curs
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ENGRAM_VAULT_URL` | `http://localhost:3100` | your vault |
-| `ENGRAM_AGENT_ID` | `0` | the "Engram Desktop" ERC-8004 agent id on Monad testnet |
+| `ENGRAM_VAULT_URL` | `https://engram-vault.vercel.app` | your vault |
+| `ENGRAM_AGENT_ID` | `2070` | the "Engram Desktop" ERC-8004 agent id on Monad testnet |
 | `ENGRAM_PORT` | `7457` | local port for the vault tab; change it if it is taken |
 
 ## Security notes
