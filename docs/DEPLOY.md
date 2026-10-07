@@ -81,3 +81,27 @@ URLs.
   match it, so test agents on the production domain.
 - **Indexer (optional):** deploy `indexer/` to Envio's hosted service (see `indexer/README.md`) and set
   `NEXT_PUBLIC_INDEXER_URL` (vault) and `INDEXER_URL` (agents) to its GraphQL URL.
+
+## Monad Metropolis deployment (new projects only)
+
+The hacksprint deployments (Vercel `hippo-plum`, `hippo-foio`, `hippo-ntj5`, their Envio indexer and registry
+`0x733d…9d31`) are frozen and judged. Everything below goes to **new** projects; never redeploy over those.
+
+1. **Repository.** Create a new GitHub repository and push this folder to it (it has no remote yet).
+2. **Indexer.** New Envio Cloud deployment from `indexer/`; note its GraphQL URL.
+3. **Agents.** Register the identities with `scripts/register-agent.ts` (needs a funded testnet `HOLDER_PRIVATE_KEY`):
+   - Sage and Wayfarer: `--origin` = each app's final URL, `--out` a new env file each.
+   - "Engram Desktop" for MCP (contracts/mcp.md): `--name "Engram Desktop" --origin http://127.0.0.1:7457`.
+     Its id is `ENGRAM_AGENT_ID` for `engram-mcp`.
+4. **Vercel: three new projects** from the new repository, Root Directory `apps/vault`, `apps/agent`, `apps/agent`.
+
+| Project | Variables |
+|---|---|
+| vault | `RELAYER_PRIVATE_KEY` (funded), `NEXT_PUBLIC_INDEXER_URL`, `NEXT_PUBLIC_SAGE_URL`, `NEXT_PUBLIC_WAYFARER_URL`, `NEXT_PUBLIC_MCP_ON_NPM=0` |
+| sage | `AGENT_PERSONA=assistant`, `APP_ORIGIN`, `AGENT_ID`, `AGENT_MODE=disclosure`, `CONTINUATION_SECRET` (`openssl rand -hex 32`), `INDEXER_URL`, `KIMI_API_KEY`, `KIMI_BASE_URL`, `KIMI_MODEL`, `ANON_CHAT=on`, `ANON_PER_HOUR=20`, `NEXT_PUBLIC_VAULT_URL`, `NEXT_PUBLIC_AGENT_ID`, `NEXT_PUBLIC_AGENT_PERSONA=assistant`, `NEXT_PUBLIC_AGENT_MODE=disclosure`, `NEXT_PUBLIC_PEER_AGENT_URL` (Wayfarer's URL) |
+| wayfarer | same as sage with `planner`, its own `AGENT_ID`, `APP_ORIGIN` and `CONTINUATION_SECRET`, and `NEXT_PUBLIC_PEER_AGENT_URL` = Sage's URL |
+
+5. **Check before announcing:** run `npx playwright test -c tests/e2e/playwright.config.ts` against the deployed
+   URLs (or locally with the same env), then open the vault, Sage and Wayfarer on a phone.
+6. **engram-mcp on npm** (optional, from your account): `npm publish -w engram-mcp` after `npm run build -w engram-mcp`,
+   then set `NEXT_PUBLIC_MCP_ON_NPM=1` on the vault so the landing shows the one-line install.
