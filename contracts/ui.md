@@ -25,6 +25,12 @@ is replaced by U20.
   | `wayfarer` | #FF8A2B | Wayfarer's color block |
   | `pop` | #FFD23F | "saved" highlight, badges |
   | `danger` | #FF5A5F | revoke, reject, errors |
+  | `ink-soft` | #5C5348 | secondary text (6.92:1 on paper) |
+  | `vault-ink` | #4D33CC | small purple text and links on light surfaces (7.24:1 on paper) |
+  | `danger-ink` | #B3261E | small error text on light surfaces (6.0:1 on paper) |
+  | `vault-soft` / `danger-soft` | #EAE4FF / #FFE3E3 | tinted backgrounds behind ink or *-ink text |
+  The three `*-ink` tokens were added during the build (2026-10-08): the fill colors pass with ink text on them but
+  fail as small text on paper, and the dashboard uses colored small text.
   Text on any color block is `ink`, never white (contrast). No gradients. Measured ink contrast: paper 16.9,
   vault 5.32, sage 9.66, wayfarer 7.83, pop 12.76, danger 6.04 (all >= 4.5:1).
 - **Signature motif:** 3 px `ink` outline + hard shadow `5px 5px 0 ink` on cards and buttons. Pressing a button
@@ -81,7 +87,7 @@ excluded and keep their warning). Closes itself when the list is empty.
 ## Behavior cases (input -> expected output)
 | # | Input | Expected output | Notes |
 |---|---|---|---|
-| U1 | any page | only the 3 font families above load; computed colors on text, borders and backgrounds come from the 7 tokens | token discipline |
+| U1 | any page | only the 3 font families above load; computed colors on text, borders and backgrounds come from the palette tokens | token discipline |
 | U2 | any button, pointer down | moves 5 px down-right, shadow 0; returns on release | motif |
 | U3 | Sage reply with one saved memory | a `pop` pill with the text appears under the reply, then a copy flies into the vault object; the counter goes up by 1 | signature motion |
 | U4 | Wayfarer reply whose turn disclosed 2 memories | two `vault` pills "Used from your vault" above the reply | makes disclosure visible |
@@ -128,5 +134,8 @@ excluded and keep their warning). Closes itself when the list is empty.
 - [x] Drafted (2026-10-07)
 - [x] Checked against the ui-ux-pro-max guidelines (2026-10-07): vault color fixed for contrast; U21-U26 added
 - [x] Reviewed by a human (2026-10-07: "approved, start building") (a static mockup of the Sage screen and landing hero is provided for this review)
-- [ ] Implementation matches this contract
-- [ ] Golden tests exist for every behavior case above (U-cases are UI: covered by e2e/Playwright checks, not tests/golden)
+- [x] Implementation matches this contract (2026-10-08) for the agent chat page, vault landing, connect popup, vault
+  strip and shared tokens/fonts; the vault dashboard got tokens and fonts only (agreed cut). Not built: the review
+  popup (agreed cut), the Apps tab merge of the read log (U14), U13's "Saved by Sage automatically" (auto-save not built)
+- [x] Browser checks in tests/e2e/ui.e2e.spec.ts: U7, U8, U10, U19, U25, U26, U27, U28 pass against the dev servers.
+  U3, U4, U16, U20-U23 are exercised by tests/e2e/agents.e2e.spec.ts, which needs the KIMI env to run

@@ -47,6 +47,13 @@ function Strip() {
   }, []);
   const [policy, setPolicy] = useState<PolicyView | null | undefined>(undefined);
   const [lines, setLines] = useState<Line[]>([]);
+  // How many times the vault answered or saved for this app since the strip opened (contracts/ui.md: the counter).
+  const [count, setCount] = useState(0);
+  // The strip sits inside the app's colored header: let it show through the rounded corners.
+  useEffect(() => {
+    document.documentElement.style.background = "transparent";
+    document.body.style.background = "transparent";
+  }, []);
   const sessionRef = useRef<OwnerSession | null>(null);
   const bridge = useRef<ReturnType<typeof startBridge> | null>(null);
   const seq = useRef(0);
@@ -56,7 +63,10 @@ function Strip() {
   useEffect(() => {
     parentOrigin.current = embedder();
     if (agentId === null || agentId === undefined || window.parent === window) return;
-    const push = (text: string, tone: Line["tone"]) => setLines((l) => [{ key: seq.current++, text, tone }, ...l].slice(0, 3));
+    const push = (text: string, tone: Line["tone"]) => {
+      setLines((l) => [{ key: seq.current++, text, tone }, ...l].slice(0, 3));
+      if (tone === "read" || tone === "write") setCount((c) => c + 1);
+    };
     const onEvent = (e: BridgeEvent) => {
       if (!e.ok) return push(e.code === "RATE_LIMITED" ? "Paused: this app asked too often" : `Refused: ${e.code.toLowerCase().replaceAll("_", " ")}`, "error");
       if (e.op === "propose") return push(`Saved for you, waiting for your review: ${e.text}`, "write");
@@ -104,53 +114,46 @@ function Strip() {
     });
   }, [session, agentId, run, lock]);
 
-  if (agentId === undefined) return <Frame><span className="text-ink-soft">Opening your vault…</span></Frame>;
+  if (agentId === undefined) return <Frame><span className="text-[12px] font-bold">Opening your vault…</span></Frame>;
   if (agentId === null || !framed) {
-    return <Frame><span className="text-ink-soft">This page only works inside an approved agent app.</span></Frame>;
+    return <Frame><span className="text-[12px] font-bold">This page only works inside an approved app.</span></Frame>;
   }
 
   const here = parentOrigin.current;
   const approvedHere = !!policy && policy.active && (!here || policy.origin === here);
   const busy = status === "working";
 
+  const on = status === "ready" && approvedHere;
+  const statusText =
+    status === "restoring" ? "Opening your vault…"
+      : status !== "ready" ? "Vault locked"
+        : policy === undefined ? "Checking approval…"
+          : approvedHere ? "sharing only what is relevant"
+            : "Not approved for this site";
+  const line = lines[0]?.text ?? (status === "ready" ? (approvedHere ? "No reads yet. Each one shows up here and in your vault." : "") : (resumeNote ?? error ?? "Resume so this app can ask. It never gets a key."));
+
   return (
-    <Frame>
-      <div className="flex min-w-0 flex-1 flex-col justify-center">
-        <p className="flex items-center gap-2 font-mono text-[11px] text-ink-soft">
-          <Seal size={16} />
-          <span className="text-ink">Engram vault</span>
-          <span className="text-rule">/</span>
-          {status === "restoring" ? (
-            <span>opening…</span>
-          ) : status !== "ready" ? (
-            <span>locked</span>
-          ) : policy === undefined ? (
-            <span>checking approval…</span>
-          ) : approvedHere ? (
-            <span className="flex items-center gap-1.5 text-seal"><span className="live-dot" aria-hidden /> sharing only what is relevant</span>
-          ) : (
-            <span className="text-rust">Not approved for this site</span>
-          )}
+    <Frame on={on}>
+      <span key={count} className={count ? "wobble" : ""}>
+        <Seal size={38} muted={!on} />
+      </span>
+      {on ? <span className="font-display text-[26px] leading-none" aria-label={`${count} answers this visit`}>{count}</span> : null}
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 truncate text-[12px] font-bold">
+          {on ? <span className="live-dot shrink-0" aria-hidden /> : null}
+          <span className="truncate">{statusText}</span>
         </p>
-        <p className="mt-1 truncate text-[13px] leading-snug" aria-live="polite">
-          {lines[0] ? (
-            <span key={lines[0].key} className={`ink-in inline-block max-w-full truncate ${lines[0].tone === "error" ? "text-rust" : lines[0].tone === "write" ? "text-seal" : ""}`}>
-              {lines[0].text}
-            </span>
-          ) : status === "ready" ? (
-            <span className="text-ink-soft">No reads yet. Each one will show up here and in your vault.</span>
-          ) : (
-            <span className="text-ink-soft">{resumeNote ?? error ?? "Resume so this app can ask your vault. It won't get a key."}</span>
-          )}
+        <p className="truncate text-[12px] font-medium" aria-live="polite">
+          <span key={lines[0]?.key ?? -1} className={lines[0] ? "ink-in" : ""}>{line}</span>
         </p>
       </div>
       {status !== "ready" ? (
-        <button className="btn btn-primary shrink-0 px-3 py-1.5 text-sm" onClick={resume} disabled={busy || status === "restoring"}>
+        <button className="btn btn-primary text-xs shrink-0 px-2.5" onClick={resume} disabled={busy || status === "restoring"}>
           {busy ? "Waiting…" : "Resume memory"}
         </button>
       ) : approvedHere ? (
         <button
-          className="btn btn-danger shrink-0 px-3 py-1.5 text-sm"
+          className="btn btn-danger text-xs shrink-0 px-2.5"
           onClick={() =>
             void run((s) => s.disapprove(agentId)).then((r) => {
               if (!r) return;
@@ -166,8 +169,12 @@ function Strip() {
   );
 }
 
-function Frame({ children }: { children: React.ReactNode }) {
-  return <main className="flex h-dvh items-center gap-3 overflow-hidden border border-rule bg-card px-3">{children}</main>;
+function Frame({ children, on = false }: { children: React.ReactNode; on?: boolean }) {
+  return (
+    <main className={`flex h-dvh items-center gap-2 overflow-hidden rounded-[14px] border-[3px] border-ink px-2 ${on ? "bg-vault" : "bg-[#d9d2c5]"}`}>
+      {children}
+    </main>
+  );
 }
 
 export default function BridgePage() {

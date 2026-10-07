@@ -1,18 +1,19 @@
 "use client";
-// Chat UI for a KIMI agent connected to the user's own memory vault (contracts/apps.md App 2 / App 3).
+// Chat UI for a KIMI agent connected to the user's own memory vault (contracts/apps.md App 2 / App 3, ui.md).
 import { connectEngram, openVaultBridge, type DisclosedEntry, type VaultBridge } from "@engram/sdk";
 import { useEffect, useRef, useState } from "react";
 import { persona } from "@/lib/personas";
 import { Monogram } from "@/components/Monogram";
-import { Seal } from "@/components/Seal";
 import { Words } from "@/components/Words";
 
 type Unsaved = { kind: "fact" | "preference" | "note"; text: string };
-type Msg = { role: "user" | "assistant"; content: string; saved?: { text: string; txHash?: string }[]; unsaved?: string[] };
+type Msg = { role: "user" | "assistant"; content: string; saved?: { text: string; txHash?: string }[]; unsaved?: string[]; used?: string[] };
 const P = persona(process.env.NEXT_PUBLIC_AGENT_PERSONA);
 const VAULT = process.env.NEXT_PUBLIC_VAULT_URL ?? "http://localhost:3100";
 const AGENT_ID = BigInt(process.env.NEXT_PUBLIC_AGENT_ID ?? "0");
-const EXPLORER = "https://testnet.monadvision.com/tx/";
+// The other demo app, for "See it in Wayfarer" after Sage saves something (simple-flow.md C26).
+const PEER = persona(P.id === "assistant" ? "planner" : "assistant");
+const PEER_URL = process.env.NEXT_PUBLIC_PEER_AGENT_URL ?? "";
 const FLAG = `engram-connected-${P.id}`; // UI convenience only; the httpOnly cookie is the real session
 // Chat first (contracts/simple-flow.md A, B2): the conversation and memories waiting for a vault live in this tab only
 // (sessionStorage): a refresh keeps them, closing the tab deletes them.
@@ -125,6 +126,30 @@ export default function Page() {
     // Keep one strip across connecting -> connected: remount only when it should appear or go away.
   }, [connected || connecting]);
 
+  // Saved memories fly into the vault strip (contracts/ui.md U3). Visual only: the pills are already in the DOM.
+  const flown = useRef(0);
+  useEffect(() => {
+    const last = messages.length - 1;
+    if (last < flown.current || !messages[last]?.saved?.length || !bridgeMount.current) return;
+    flown.current = last + 1;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const target = bridgeMount.current.getBoundingClientRect();
+    document.querySelectorAll<HTMLElement>(`[data-fly="${last}"]`).forEach((el, i) => {
+      const r = el.getBoundingClientRect();
+      const c = el.cloneNode(true) as HTMLElement;
+      c.classList.add("flight");
+      c.removeAttribute("data-fly");
+      c.setAttribute("aria-hidden", "true");
+      Object.assign(c.style, { left: `${r.left}px`, top: `${r.top}px`, transitionDelay: `${i * 120}ms` });
+      document.body.appendChild(c);
+      requestAnimationFrame(() => {
+        c.style.transform = `translate(${target.left + 20 - r.left}px, ${target.top + 10 - r.top}px) scale(0.3)`;
+        c.style.opacity = "0";
+      });
+      setTimeout(() => c.remove(), 700 + i * 120);
+    });
+  }, [messages]);
+
   /** Asks the vault (through the bridge) and maps its refusals onto what the server needs to know. */
   async function ask(query: string, mode: "relevant" | "full", round: number): Promise<{ entries: DisclosedEntry[]; memory: "ok" | "locked" | "revoked" | "none" }> {
     if (!bridge.current) return { entries: [], memory: "none" };
@@ -137,7 +162,7 @@ export default function Page() {
   }
 
   /** Runs pending tool calls through the vault until the server has a final reply (at most 3 tool rounds). */
-  async function finish(res: Response, body: ChatReply, held: string[]): Promise<{ res: Response; body: ChatReply }> {
+  async function finish(res: Response, body: ChatReply, held: string[], used: string[]): Promise<{ res: Response; body: ChatReply }> {
     for (let round = 1; round <= 8 && res.ok && body.pending && body.continuation; round++) {
       const p = body.pending;
       let result: Record<string, unknown>;
@@ -152,6 +177,7 @@ export default function Page() {
           result = { id: p.id, ok: false, code: "NOT_CONNECTED" };
         } else if (p.tool === "recall") {
           const r = await bridge.current!.disclose(String(p.args.query ?? ""), { mode: p.args.mode === "full" ? "full" : "relevant", round: Math.min(round, 3) });
+          used.push(...r.entries.map((x) => x.text));
           result = { id: p.id, ok: true, entries: r.entries };
         } else {
           const w = await bridge.current!.propose({ kind: p.args.kind as "fact", text: String(p.args.text ?? "") });
@@ -211,7 +237,8 @@ export default function Page() {
         ...(MODE === "disclosure" ? { disclosed: pre.entries, memory: pre.memory } : {}),
       });
       const held: string[] = [];
-      const done = await finish(first, ((await first.json().catch(() => ({}))) ?? {}) as ChatReply, held);
+      const used: string[] = pre.entries.map((x) => x.text);
+      const done = await finish(first, ((await first.json().catch(() => ({}))) ?? {}) as ChatReply, held, used);
       const res = done.res;
       const body = done.body;
       if (res.status === 401) {
@@ -229,7 +256,7 @@ export default function Page() {
         return;
       }
       setRevoked(!!body.accessRevoked);
-      setMessages([...next, { role: "assistant", content: body.reply ?? "", saved: body.saved, ...(held.length ? { unsaved: held } : {}) }]);
+      setMessages([...next, { role: "assistant", content: body.reply ?? "", saved: body.saved, ...(held.length ? { unsaved: held } : {}), ...(used.length ? { used: [...new Set(used)] } : {}) }]);
     } catch {
       setNotice("Could not reach the agent. Check your connection and try again.");
     } finally {
@@ -238,77 +265,50 @@ export default function Page() {
   }
 
   const canWrite = P.scope === "readwrite";
-  const promises =
-    MODE === "disclosure"
-      ? ([
-          ["Asks first", `each time you message it, and your vault shares only what fits from your ${P.labels.join(", ")} folder.`],
-          [canWrite ? "Suggests" : "Never writes", canWrite ? `memories when you tell it something worth keeping. They stay marked as ${P.name}'s until you confirm them in your vault.` : "to your memory. It can only ask."],
-          ["Forgets", "you as soon as you revoke it, because your vault stops answering."],
-        ] as const)
-      : ([
-          ["Reads", `your ${P.labels.join(", ")} folder once you approve it in your vault.`],
-          [canWrite ? "Writes" : "Never writes", canWrite ? "what you ask it to remember into your own memory, with a public receipt for each save." : "to your memory. It can read what you shared."],
-          ["Forgets", "you when you revoke it in your vault. Its next reply starts from nothing."],
-        ] as const);
+  const memoryOn = MODE === "disclosure" && (connected || connecting);
+  const lastSaved = messages.reduce((n, m, i) => (m.saved?.length ? i : n), -1);
 
   return (
-    <main className="mx-auto grid min-h-dvh max-w-6xl grid-cols-1 md:grid-cols-[19rem_1fr]">
-      <aside className="flex flex-col gap-6 border-b border-rule px-5 py-6 md:sticky md:top-0 md:h-dvh md:border-b-0 md:border-r md:px-8 md:py-10">
-        <div className="flex items-center gap-4">
-          <Monogram letter={P.name[0]!} />
+    <main className="flex min-h-dvh flex-col">
+      <header className="sticky top-0 z-20 border-b-[3px] border-ink" style={{ background: "var(--agent)" }}>
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 md:px-6">
+          <Monogram letter={P.name[0]!} plain />
           <div className="min-w-0">
-            <h1 className="font-display text-4xl leading-none tracking-tight">{P.name}</h1>
-            <p className="mt-1 text-sm leading-snug text-ink-soft">{P.tagline}</p>
+            <h1 className="font-display text-3xl leading-none md:text-4xl">{P.name}</h1>
+            <p className="hidden truncate text-sm font-semibold sm:block">{P.tagline}</p>
+          </div>
+          <div className="ml-auto w-[min(320px,56vw)]">
+            {memoryOn ? (
+              <div ref={bridgeMount} aria-label="Your Engram vault" />
+            ) : (
+              <button onClick={() => void connect()} className="btn btn-primary w-full justify-center px-3" aria-label={`Turn on memory${unsaved.length ? ` (${unsaved.length} waiting)` : ""}`}>
+                <span className="whitespace-nowrap">Turn on memory</span>
+                {unsaved.length ? (
+                  <span aria-hidden className="grid h-6 min-w-6 place-items-center rounded-full border-2 border-ink bg-pop px-1 text-xs">{unsaved.length}</span>
+                ) : null}
+              </button>
+            )}
           </div>
         </div>
-        <div>
-          {connected ? (
-            <span className="inline-flex items-center gap-2 rounded-sm border border-rule bg-card px-3 py-1.5 font-mono text-xs text-seal">
-              <span className="live-dot" aria-hidden />
-              memory connected · {canWrite ? "can read and add" : "read only"}
-            </span>
-          ) : (
-            <button onClick={() => void connect()} className="btn btn-primary lift w-full justify-center px-4 py-3">
-              Turn on memory{unsaved.length ? ` (${unsaved.length} waiting)` : ""}
-            </button>
-          )}
-        </div>
-        {MODE === "disclosure" && (connected || connecting) ? <div ref={bridgeMount} className="-mt-2" aria-label="Your Engram vault" /> : null}
-        <ul className="stagger hidden space-y-4 md:block">
-          {promises.map(([k, v], i) => (
-            <li key={k} className="border-l-2 border-rule pl-3 text-sm leading-relaxed text-ink-soft" style={{ ["--i" as string]: i, ["--d" as string]: "300ms" }}>
-              <span className="font-medium text-ink">{k}</span> {v}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-auto hidden font-mono text-[11px] leading-relaxed text-ink-soft md:block">
-          ERC-8004 agent #{AGENT_ID.toString()} on Monad testnet. Your memory lives in your{" "}
-          <a href={VAULT} target="_blank" rel="noreferrer" className="underline decoration-rule underline-offset-4 hover:text-ink">vault</a>, not here.
-        </p>
-      </aside>
+      </header>
 
-      <section className="flex min-h-dvh flex-col px-5 py-6 md:px-12 md:py-10">
+      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-4 pt-6 md:px-6">
         {revoked ? (
-          <p className="settle mb-4 rounded-sm border border-rust/40 bg-rust-soft px-3 py-2 text-sm text-rust">
-            Access revoked by you. I can&apos;t see your memory any more, so I&apos;ll ask what I need.
-            <button className="ml-2 underline" onClick={() => void connect()}>Reconnect</button>
-          </p>
+          <div className="settle mb-4 flex flex-wrap items-center gap-3 rounded-[14px] border-[3px] border-ink bg-danger-soft px-4 py-2.5 text-sm">
+            <span>You revoked my access, so I&apos;ll ask what I need.</span>
+            <button className="btn btn-primary text-xs px-2.5" onClick={() => void connect()}>Turn memory back on</button>
+          </div>
         ) : null}
 
         <div className="flex-1 space-y-6 pb-6">
           {messages.length === 0 ? (
-            <div className="pt-4 md:pt-16">
-              <p className="max-w-2xl font-display text-[clamp(2rem,4vw,3.25rem)] leading-[1.05] tracking-tight">
+            <div className="pt-4 md:pt-12">
+              <p className="max-w-2xl font-display text-[clamp(2rem,5vw,3.4rem)] leading-[1.02]">
                 <Words>{P.greeting}</Words>
               </p>
-              <div className="stagger mt-8 flex flex-wrap gap-2.5">
+              <div className="stagger mt-8 flex flex-wrap gap-3">
                 {P.suggestions.map((s, i) => (
-                  <button
-                    key={s}
-                    onClick={() => void send(s)}
-                    style={{ ["--i" as string]: i, ["--d" as string]: "700ms" }}
-                    className="lift rounded-sm border border-rule bg-card px-3.5 py-2.5 text-left text-sm hover:border-seal"
-                  >
+                  <button key={s} onClick={() => void send(s)} style={{ ["--i" as string]: i, ["--d" as string]: "500ms" }} className="btn px-3.5 text-left text-sm">
                     {s}
                   </button>
                 ))}
@@ -317,45 +317,46 @@ export default function Page() {
           ) : null}
           {messages.map((m, i) =>
             m.role === "user" ? (
-              <div key={i} className="settle ml-auto max-w-[80%] text-right">
-                <div className="inline-block rounded-sm bg-ink px-4 py-2.5 text-left leading-relaxed text-[#f7f3ea] whitespace-pre-wrap">{m.content}</div>
+              <div key={i} className="settle ml-auto max-w-[85%] text-right">
+                <div className="inline-block whitespace-pre-wrap rounded-[14px] bg-ink px-4 py-2.5 text-left font-medium leading-relaxed text-white">{m.content}</div>
               </div>
             ) : (
               <div key={i} className="settle flex max-w-[92%] gap-3">
-                <Monogram letter={P.name[0]!} size={30} />
+                <Monogram letter={P.name[0]!} size={34} />
                 <div className="min-w-0 flex-1">
-                  {m.content ? (
-                    <div className="paper-card px-4 py-3">
-                      <p className="ink-in whitespace-pre-wrap leading-relaxed">{m.content}</p>
-                    </div>
-                  ) : null}
-                  {m.saved?.length ? (
-                    <div className="stagger mt-2 flex flex-wrap gap-2">
-                      {m.saved.map((s, k) => (
-                        <a
-                          key={`${s.txHash ?? s.text}-${k}`}
-                          // Disclosure mode: the app never learns the tx (it would name you); the chip opens your vault.
-                          href={s.txHash ? `${EXPLORER}${s.txHash}` : VAULT}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ ["--i" as string]: k, ["--d" as string]: "500ms" }}
-                          className="lift inline-flex items-center gap-1.5 rounded-sm border border-seal/25 bg-seal-soft px-2 py-1 font-mono text-[11px] text-seal hover:underline"
-                        >
-                          <Seal size={14} className="seal-stamp" />
-                          saved to your memory: {s.text}
-                        </a>
-                      ))}
-                    </div>
-                  ) : null}
-                  {m.unsaved?.length ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {m.unsaved.map((t, k) => (
-                        <span key={`${t}-${k}`} className="inline-flex items-center rounded-sm border border-dashed border-rule px-2 py-1 font-mono text-[11px] text-ink-soft">
-                          {unsaved.some((u) => u.text === t) ? "not saved yet" : "saved"}: {t}
+                  {m.used?.length ? (
+                    <div className="mb-2 flex flex-wrap gap-2" aria-label="Used from your vault">
+                      {m.used.map((t, k) => (
+                        <span key={`${t}-${k}`} className="pill pill-used" aria-label={`Used from your vault: ${t}`}>
+                          <span className="t">Used: {t}</span>
                         </span>
                       ))}
-                      {!connected ? (
-                        <button className="btn btn-primary px-2.5 py-1 text-xs" onClick={() => void connect()}>Turn on memory</button>
+                    </div>
+                  ) : null}
+                  {m.content ? (
+                    <div className="paper-card px-4 py-3">
+                      <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                    </div>
+                  ) : null}
+                  {m.saved?.length || m.unsaved?.length ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {(m.saved ?? []).map((s, k) => (
+                        <span key={`${s.text}-${k}`} data-fly={i} className="pill pill-saved" aria-label={`Saved to your memory: ${s.text}`}>
+                          <span className="t">Saved: {s.text}</span>
+                        </span>
+                      ))}
+                      {(m.unsaved ?? []).map((t, k) => {
+                        const waiting = unsaved.some((u) => u.text === t);
+                        return (
+                          <span key={`${t}-${k}`} className={`pill ${waiting ? "pill-waiting" : "pill-saved"}`} aria-label={`${waiting ? "Not saved yet" : "Saved to your memory"}: ${t}`}>
+                            <span className="t">{waiting ? (connected ? "Saving…" : "Not saved yet") : "Saved"}: {t}</span>
+                          </span>
+                        );
+                      })}
+                      {i === lastSaved && PEER_URL && canWrite ? (
+                        <a href={PEER_URL} target="_blank" rel="noreferrer" className="ml-1 text-sm font-bold underline underline-offset-4">
+                          See it in {PEER.name} →
+                        </a>
                       ) : null}
                     </div>
                   ) : null}
@@ -364,49 +365,44 @@ export default function Page() {
             ),
           )}
           {busy ? (
-            <div className="settle flex items-center gap-3 font-mono text-xs text-ink-soft">
-              <Monogram letter={P.name[0]!} size={30} />
+            <div className="settle flex items-center gap-3 text-sm font-semibold">
+              <Monogram letter={P.name[0]!} size={34} />
               <span className="drops" aria-hidden><span /><span /><span /></span>
-              <span>{connected ? "checking your vault" : "thinking"}</span>
+              <span>{connected ? "asking your vault" : "thinking"}</span>
             </div>
           ) : null}
           <div ref={end} />
         </div>
 
         {unsaved.length ? (
-          <div role="status" className="settle mb-3 flex flex-wrap items-center gap-3 rounded-sm border border-dashed border-rule px-3 py-2 text-sm">
+          <div role="status" className="settle mb-3 flex flex-wrap items-center gap-3 rounded-[14px] border-[3px] border-dashed border-ink bg-card px-4 py-2.5 text-sm">
             <span>
               {unsaved.length === 1 ? "1 memory isn't" : `${unsaved.length} memories aren't`} saved yet. Closing this tab deletes {unsaved.length === 1 ? "it" : "them"}.
             </span>
             {!connected ? (
-              <button className="btn btn-primary px-2.5 py-1 text-xs" onClick={() => void connect()}>Turn on memory</button>
+              <button className="btn btn-primary text-xs px-2.5" onClick={() => void connect()}>Turn on memory</button>
             ) : null}
           </div>
         ) : null}
-        {notice ? <p role="alert" className="settle mb-3 text-sm text-rust">{notice}</p> : null}
-        <form
-          onSubmit={(e) => { e.preventDefault(); void send(input); }}
-          className="paper-card sticky bottom-4 flex items-end gap-3 p-3 transition-shadow focus-within:shadow-[0_0_0_1px_var(--color-seal),0_14px_30px_-18px_rgba(27,25,22,0.5)]"
-        >
+        {notice ? (
+          <p role="alert" className="settle mb-3 rounded-[14px] border-[3px] border-ink bg-danger-soft px-4 py-2.5 text-sm">{notice}</p>
+        ) : null}
+        <form onSubmit={(e) => { e.preventDefault(); void send(input); }} className="sticky bottom-4 flex items-end gap-3">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(input); } }}
-            rows={2}
+            rows={1}
             maxLength={4000}
             placeholder={`Message ${P.name}`}
             aria-label={`Message ${P.name}`}
-            className="flex-1 resize-none bg-transparent px-1 leading-relaxed outline-none"
+            className="paper-card min-h-[52px] flex-1 resize-none px-4 py-3 leading-relaxed outline-none"
           />
-          <button className="btn btn-primary px-4 py-2" disabled={busy || !input.trim()}>
-            Send
-          </button>
+          <button className="btn btn-primary px-5" disabled={busy || !input.trim()}>Send</button>
         </form>
-        {messages.length ? (
-          <button className="mx-auto mt-2 block font-mono text-[11px] text-ink-soft underline" onClick={clearChat}>Clear this chat</button>
-        ) : null}
-        <p className="mt-3 text-center font-mono text-[11px] text-ink-soft">
-          Runs on KIMI. {P.name} only sees what your vault shares, and that goes to KIMI so it can answer you.
+        <p className="mt-4 text-center text-xs font-medium text-ink-soft">
+          Runs on KIMI. {P.name} sees only what your vault shares.
+          {messages.length ? <> · <button className="underline" onClick={clearChat}>Clear this chat</button></> : null}
         </p>
       </section>
     </main>

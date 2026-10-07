@@ -23,6 +23,7 @@ test("passkey vault end to end on Monad testnet", async ({ page }) => {
 
   // 1. One-prompt onboarding and the first confirmed Monad transaction.
   const t0 = Date.now();
+  await page.getByRole("button", { name: "Open my vault" }).click(); // ui.md U27: the landing offers the models first
   await page.getByRole("button", { name: "Create my memory vault" }).click();
   await expect(page.getByRole("heading", { name: "What your AI knows about you" })).toBeVisible();
   const owner = (await page.locator("aside a").first().textContent())!.trim();
@@ -33,11 +34,12 @@ test("passkey vault end to end on Monad testnet", async ({ page }) => {
   const firstTxMs = Date.now() - t0;
   test.info().annotations.push({ type: "time-to-first-tx-ms", description: String(firstTxMs) });
   console.log(JSON.stringify({ stage: "e2e", op: "first-tx", ms: firstTxMs, owner }));
-  await expect(page.getByRole("link", { name: /sealed #\d+ on Monad/ }).first()).toHaveAttribute("href", /monadvision\.com\/tx\/0x/);
+  await expect(page.getByRole("link", { name: "View on Monad" }).first()).toHaveAttribute("href", /monadvision\.com\/tx\/0x/);
 
   // 2. Stateless test: wipe every kind of site data, reload, unlock with the same passkey.
   await cdp.send("Storage.clearDataForOrigin", { origin: new URL(page.url()).origin, storageTypes: "all" });
   await page.reload();
+  await page.getByRole("button", { name: "Open my vault" }).click();
   await expect(page.getByRole("button", { name: "Create my memory vault" })).toBeVisible();
   await page.getByRole("button", { name: "I already have one, unlock it" }).click();
   await expect(page.locator("aside a").first()).toHaveText(owner);

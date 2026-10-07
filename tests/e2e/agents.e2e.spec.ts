@@ -30,7 +30,6 @@ async function connectAndUnlock(page: Page) {
 test("Sage: proposals are saved by the vault, and a full read is logged", async ({ page }) => {
   await page.goto("http://localhost:3201/");
   const strip = await connectAndUnlock(page);
-  await expect(page.getByText("memory connected · can read and add")).toBeVisible();
   // simple-flow.md C7: a refresh keeps the strip unlocked (restored from its own device store, no prompt).
   await page.reload();
   await expect(page.frameLocator("iframe.engram-bridge").getByText("sharing only what is relevant")).toBeVisible({ timeout: 60_000 });
@@ -46,11 +45,10 @@ test("Sage: proposals are saved by the vault, and a full read is logged", async 
 
   await page.getByLabel("Message Sage").fill("I am vegetarian and I am allergic to peanuts.");
   await page.getByRole("button", { name: "Send" }).click();
-  const chip = page.getByRole("link", { name: "saved to your memory: I am vegetarian" });
+  const chip = page.getByLabel("Saved to your memory: I am vegetarian");
   await expect(chip).toBeVisible({ timeout: 90_000 });
   // Disclosure mode: the app never gets the tx (it names the owner, D33); the chip opens the user's own vault.
-  await expect(chip).toHaveAttribute("href", /^http:\/\/localhost:3100/);
-  await expect(page.getByRole("link", { name: "saved to your memory: I am allergic to peanuts" })).toBeVisible();
+  await expect(page.getByLabel("Saved to your memory: I am allergic to peanuts")).toBeVisible();
   await expect(strip.getByText(/Saved for you, waiting for your review: I am/)).toBeVisible();
 
   await page.getByLabel("Message Sage").fill("What do you know about me?");
@@ -61,8 +59,7 @@ test("Sage: proposals are saved by the vault, and a full read is logged", async 
 
   // The owner's vault shows the proposals credited to Sage and the reads log.
   const vault = await page.context().newPage();
-  await vault.goto("http://localhost:3100/");
-  await vault.getByRole("button", { name: "I already have one, unlock it" }).click();
+  await vault.goto("http://localhost:3100/"); // still signed in on this device (simple-flow.md B)
   await expect(vault.getByRole("heading", { name: "What your AI knows about you" })).toBeVisible({ timeout: 60_000 });
   // Locally the card proxy is https-only, so the name falls back to the agent id; deployed it reads "Sage".
   await expect(vault.getByText(/Proposed by (Sage|Agent #\d+)/).first()).toBeVisible({ timeout: 60_000 });
@@ -73,11 +70,10 @@ test("Sage: proposals are saved by the vault, and a full read is logged", async 
 test("Wayfarer: read-only, plans without writing; revoke in the strip and it forgets at once", async ({ page }) => {
   await page.goto("http://localhost:3202/");
   const strip = await connectAndUnlock(page);
-  await expect(page.getByText("memory connected · read only")).toBeVisible();
   await page.getByLabel("Message Wayfarer").fill("Plan a weekend in Goa for me.");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText(/\[dev model\] Here is a quick plan/)).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole("link", { name: /saved to your memory/ })).toHaveCount(0);
+  await expect(page.getByLabel(/Saved to your memory/)).toHaveCount(0);
   await expect(strip.getByText(/Asked, nothing relevant shared/)).toBeVisible();
 
   await strip.getByRole("button", { name: "Revoke" }).click();
@@ -94,12 +90,11 @@ test("Sage proposes, you confirm in the vault, Wayfarer plans around it (provena
   await connectAndUnlock(page);
   await page.getByLabel("Message Sage").fill("I am vegetarian and I am allergic to peanuts.");
   await page.getByRole("button", { name: "Send" }).click();
-  await expect(page.getByRole("link", { name: "saved to your memory: I am allergic to peanuts" })).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByLabel("Saved to your memory: I am allergic to peanuts")).toBeVisible({ timeout: 90_000 });
 
   // Quarantined: review in the vault and confirm both.
   const vault = await context.newPage();
-  await vault.goto("http://localhost:3100/");
-  await vault.getByRole("button", { name: "I already have one, unlock it" }).click();
+  await vault.goto("http://localhost:3100/"); // still signed in on this device (simple-flow.md B)
   await expect(vault.getByRole("heading", { name: "What your AI knows about you" })).toBeVisible({ timeout: 60_000 });
   await vault.getByRole("button", { name: /^Review/ }).click();
   await expect(vault.getByRole("heading", { name: "Review what agents proposed" })).toBeVisible();

@@ -151,8 +151,8 @@ function MemoryView() {
           <input
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value.toLowerCase())}
-            placeholder="new folder"
-            aria-label="New folder name"
+            placeholder="new topic"
+            aria-label="New topic name"
             className="w-32 rounded-sm border border-rule bg-card px-2 py-1 font-mono text-sm"
           />
           <button className="btn btn-ghost px-2 py-1 text-sm" disabled={!isValidLabel(newLabel)}>Add</button>
@@ -223,7 +223,7 @@ function MemoryCard({ entry, delay }: { entry: RecalledAnyEntry; delay: number }
         <span>{entry.kind}</span>
         <span>{relativeTime(entry.t)}</span>
         <a href={txUrl(entry.txHash)} target="_blank" rel="noreferrer" className="underline decoration-rule underline-offset-2 hover:text-ink">
-          sealed #{entry.seq.toString()} on Monad
+          View on Monad
         </a>
       </div>
     </li>
@@ -277,7 +277,7 @@ function AccessView() {
     <div className="max-w-3xl">
       <h2 className="font-display text-4xl tracking-tight md:text-5xl" aria-label="Who can read your memory"><Words>Who can read your memory</Words></h2>
       <p className="mt-2 text-ink-soft">
-        Revoke an app and your vault stops answering it. For apps with offline access, revoking also changes the folder&apos;s key.
+        Revoke an app and your vault stops answering it. For apps with offline access, revoking also changes that topic&apos;s key.
         Anything an app was already shown can&apos;t be taken back, by anyone.
       </p>
       <ul className="mt-8 space-y-4">
@@ -292,7 +292,7 @@ function AccessView() {
                 <p className="font-medium">{card?.name ?? `Agent #${p.agentId}`}</p>
                 <p className="mt-0.5 text-sm text-ink-soft">Asks your vault while you chat and never holds a key.</p>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-ink-soft">
-                  <span>folders: {p.labels.join(", ")}</span>
+                  <span>topics: {p.labels.join(", ")}</span>
                   <span className={p.scope === "readwrite" ? "text-rust" : "text-seal"}>{p.scope === "readwrite" ? "can ask and propose" : "can ask"}</span>
                   <span>{p.origin}</span>
                   <span>{expiresIn(BigInt(Math.floor(p.exp / 1000)))}</span>
@@ -313,7 +313,7 @@ function AccessView() {
                 <p className="font-medium">{card?.name ?? `Agent #${g.agentId}`}</p>
                 <p className="mt-0.5 text-sm text-ink-soft">{card?.description ?? "ERC-8004 registered agent"}</p>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-ink-soft">
-                  <span>folder: {g.label ?? "unknown"}</span>
+                  <span>topic: {g.label ?? "unknown"}</span>
                   <span className={g.scope === "readwrite" ? "text-rust" : "text-seal"}>{g.scope === "readwrite" ? "can read and add" : "can read"}</span>
                   <span>{expiresIn(g.expiry)}</span>
                   {!g.keysCurrent ? <span className="text-rust">agent identity changed hands</span> : null}
@@ -332,7 +332,7 @@ function AccessView() {
           <ul className="mt-3 space-y-2">
             {past.map((g) => (
               <li key={`${g.nsId}-${g.agentId}`} className="flex justify-between border-b border-rule py-2 text-sm text-ink-soft">
-                <span>{cards[g.agentId.toString()]?.name ?? `Agent #${g.agentId}`} · {g.label ?? "folder"}</span>
+                <span>{cards[g.agentId.toString()]?.name ?? `Agent #${g.agentId}`} · {g.label ?? "topic"}</span>
                 <span className="font-mono text-xs">revoked or expired</span>
               </li>
             ))}

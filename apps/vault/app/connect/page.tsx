@@ -152,43 +152,42 @@ function Consent() {
         </div>
       ) : (
         <>
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-seal">Access request</p>
-          <h1 className="mt-2 font-display text-[2.1rem] leading-tight">
-            <span className="text-seal">{name}</span> wants to read part of your memory
-          </h1>
-          {card?.description ? <p className="mt-2 text-sm text-ink-soft">{card.description}</p> : null}
+          <div className="-mx-6 -mt-2 border-y-[3px] border-ink bg-vault px-6 py-5">
+            <p className="text-xs font-bold uppercase tracking-widest">Access request</p>
+            <h1 className="mt-1 font-display text-[2rem] leading-tight">
+              {name} wants to read part of your memory
+            </h1>
+            {card?.description ? <p className="mt-1 text-sm font-medium">{card.description}</p> : null}
+          </div>
 
           <div className="paper-card mt-6 space-y-3 p-5 text-sm">
             <Row k="Requested by">
               <span className="font-mono">{req.origin}</span>{" "}
               {req.originVerified ? (
-                <span className="ml-1 rounded-sm bg-seal-soft px-1.5 py-0.5 font-mono text-[11px] text-seal">verified by agent card</span>
+                <span className="mt-1 inline-block whitespace-nowrap rounded-full border-2 border-ink bg-sage px-2 py-0.5 text-[11px] font-bold">verified by agent card</span>
               ) : (
-                <span className="ml-1 rounded-sm bg-rust-soft px-1.5 py-0.5 font-mono text-[11px] text-rust">not listed by this agent</span>
+                <span className="mt-1 inline-block whitespace-nowrap rounded-full border-2 border-ink bg-danger px-2 py-0.5 text-[11px] font-bold">not listed by this agent</span>
               )}
             </Row>
-            <Row k="Folders">{req.labels.map((l) => <span key={l} className="mr-2 font-mono">{l}</span>)}</Row>
+            <Row k="Topics">{req.labels.map((l) => <span key={l} className="mr-2 font-mono">{l}</span>)}</Row>
             <Row k="Permission">{req.scope === "readwrite" ? (req.mode === "disclosure" ? "Read, and suggest memories for you to review" : "Read, and add new memories") : "Read only"}</Row>
             <Row k="For">{duration(req.expiresInSec)}, or until you revoke it</Row>
             <Row k="How">
               {req.mode === "disclosure" ? (
-                <span><span className="font-medium text-seal">It never gets a key.</span> When you chat with it, it asks your vault, and the vault shares only the memories that fit. You can see every read in your vault.</span>
+                <span><span className="font-bold">It never gets a key.</span> It asks your vault, gets only what fits, and you see every read.</span>
               ) : (
-                <span className="text-rust">Offline access: it gets a key to these folders, can read them without you, and can keep copies.</span>
+                <span className="font-bold text-danger-ink">Offline access: it gets a key to these topics, can read them without you, and keep copies.</span>
               )}
             </Row>
           </div>
 
           {!req.originVerified ? (
-            <p className="mt-4 rounded-sm border border-rust/40 bg-rust-soft px-3 py-2 text-sm text-rust">
+            <p className="mt-4 rounded-[14px] border-[3px] border-ink bg-danger-soft px-3 py-2 text-sm font-medium">
               The agent&apos;s public card does not list {req.origin}. Only continue if you opened this from an app you trust.
             </p>
           ) : null}
-          <p className="mt-4 text-xs leading-relaxed text-ink-soft">
-            Apps pass what they&apos;re shown to their AI model provider so it can answer you.
-            {req.mode === "disclosure"
-              ? " Revoking stops any further reads right away, but what was already shown can't be taken back."
-              : " Revoking cuts off anything you add later, but what was already read can't be taken back."}
+          <p className="mt-4 text-xs font-medium leading-relaxed text-ink-soft">
+            What the app is shown goes to its AI provider so it can answer. Revoking stops new reads; past ones stay shown.
           </p>
 
           <div className="mt-6 flex flex-col gap-2">
@@ -201,7 +200,7 @@ function Consent() {
                 New here? Create a vault and approve
               </button>
             ) : null}
-            <button className="btn btn-ghost justify-center px-5 py-2.5" onClick={deny} disabled={phase === "granting"}>
+            <button className="mt-1 self-center text-sm font-bold underline underline-offset-4" onClick={deny} disabled={phase === "granting"}>
               Deny
             </button>
           </div>
@@ -215,7 +214,7 @@ function Consent() {
 function Row({ k, children }: { k: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[6.5rem_1fr] gap-3">
-      <span className="font-mono text-[11px] uppercase tracking-wider text-ink-soft">{k}</span>
+      <span className="text-[11px] font-bold uppercase tracking-wider text-ink-soft">{k}</span>
       <span>{children}</span>
     </div>
   );
