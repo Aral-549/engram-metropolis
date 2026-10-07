@@ -10,16 +10,19 @@ export const dynamic = "force-dynamic";
 
 const MAX_BODY_BYTES = 16 * 1024; // largest relayed call (16 re-wraps) is well under this
 let handler: RelayHandler | null = null;
+const num = (v: string | undefined, d: number) => (v && Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : d);
 
 function getHandler(): RelayHandler | null {
   if (handler) return handler;
   const key = process.env.RELAYER_PRIVATE_KEY as Hex | undefined;
   if (!key || !/^0x[0-9a-fA-F]{64}$/.test(key)) return null;
-  const d = deployments.monadTestnet;
+  const d = { ...deployments.monadTestnet, rpcUrl: process.env.RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || deployments.monadTestnet.rpcUrl };
   const wallet = createWalletClient({ chain: monadTestnet, transport: http(d.rpcUrl), account: privateKeyToAccount(key) });
   handler = createRelayHandler({
     config: { chainId: d.chainId, registry: d.registry, identityRegistry: d.identityRegistry, rpcUrl: d.rpcUrl },
     wallet,
+    // Launch-day knobs (docs/DEPLOY.md); defaults 30/min per owner, 300/min overall.
+    limits: { perOwnerPerMinute: num(process.env.RELAY_PER_OWNER_PER_MINUTE, 30), globalPerMinute: num(process.env.RELAY_GLOBAL_PER_MINUTE, 300) },
   });
   return handler;
 }

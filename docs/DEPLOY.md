@@ -105,3 +105,16 @@ The hacksprint deployments (Vercel `hippo-plum`, `hippo-foio`, `hippo-ntj5`, the
    URLs (or locally with the same env), then open the vault, Sage and Wayfarer on a phone.
 6. **engram-mcp on npm** (optional, from your account): `npm publish -w engram-mcp` after `npm run build -w engram-mcp`,
    then set `NEXT_PUBLIC_MCP_ON_NPM=1` on the vault so the landing shows the one-line install.
+
+### Launch-day settings (all optional; defaults shown)
+| Where | Variable | Default | Meaning |
+|---|---|---|---|
+| vault | `RELAY_PER_OWNER_PER_MINUTE` / `RELAY_GLOBAL_PER_MINUTE` | 30 / 300 | relayed writes |
+| vault | `RPC_URL`, `NEXT_PUBLIC_RPC_URL` | public Monad testnet RPC | a dedicated RPC for load |
+| agents | `ANON_PER_HOUR` / `ANON_GLOBAL_PER_HOUR` | 20 / 300 | chats without a vault, per IP / overall |
+| agents | `AGENT_PER_OWNER_PER_HOUR` / `AGENT_GLOBAL_PER_HOUR` | 30 / 600 | signed-in chats |
+| agents | `RPC_URL` | public Monad testnet RPC | |
+
+Limits are counted per server instance, so on Vercel the overall numbers are approximate; the model provider's quota
+and budget are the real ceiling. Each relayed write costs about 50k gas (about 0.005 MON at 102 gwei, measured
+2026-10-08); a user who turns on memory makes roughly 8-12 of them.

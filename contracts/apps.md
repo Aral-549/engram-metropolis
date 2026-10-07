@@ -183,6 +183,12 @@ text as "not saved yet". The page sends `client` (the caller's IP, from the rout
 | A38 | `anonymous.globalPerHour: 5`; 7 anonymous chats from 7 IPs | 5 get 200, the last 2 get 429 | AN-2 |
 | A39 | memory off; the model calls `recall` anyway (not offered) | answered locally with an error ("memory is off"); no `pending`, so no vault read can reach an anonymous turn | AN-3 |
 
+## Launch settings (2026-10-08)
+Rate limits and the RPC URL are read from env with the defaults above unchanged (docs/DEPLOY.md "Launch-day
+settings"): `AGENT_PER_OWNER_PER_HOUR`, `AGENT_GLOBAL_PER_HOUR`, `ANON_PER_HOUR`, `ANON_GLOBAL_PER_HOUR`,
+`RELAY_PER_OWNER_PER_MINUTE`, `RELAY_GLOBAL_PER_MINUTE`, `RPC_URL`, `NEXT_PUBLIC_RPC_URL`. A value that is not a
+positive integer falls back to the default.
+
 ## Design and motion (2026-10-02)
 Direction: "archival ledger on warm paper" (Instrument Serif + IBM Plex, paper/ink/seal/rust tokens, wax-seal mark).
 The landing page shows the product working (a live ledger specimen), not a feature list. Each agent has its own

@@ -9,6 +9,7 @@ import { persona } from "./personas";
 
 let server: AgentServer | null = null;
 
+const num = (v: string | undefined, d: number) => (v && Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : d);
 const need = (k: string) => {
   const v = process.env[k];
   if (!v) throw new Error(`missing env ${k}`);
@@ -17,7 +18,7 @@ const need = (k: string) => {
 
 export function agentServer(): AgentServer {
   if (server) return server;
-  const d = deployments.monadTestnet;
+  const d = { ...deployments.monadTestnet, rpcUrl: process.env.RPC_URL || deployments.monadTestnet.rpcUrl };
   const p = persona(process.env.AGENT_PERSONA);
   const config: EngramConfig = {
     chainId: d.chainId, registry: d.registry, identityRegistry: d.identityRegistry, rpcUrl: d.rpcUrl,
@@ -49,7 +50,11 @@ export function agentServer(): AgentServer {
     origin: need("APP_ORIGIN"),
     persona: { name: p.name, description: p.description, systemPrompt: p.systemPrompt, canWrite: p.scope === "readwrite", labels: p.labels },
     // Chat without a vault (contracts/apps.md A28-A36); ANON_CHAT=off turns it off.
-    ...(mode === "disclosure" && process.env.ANON_CHAT !== "off" ? { anonymous: { perHour: Number(process.env.ANON_PER_HOUR ?? 20) || 20 } } : {}),
+    ...(mode === "disclosure" && process.env.ANON_CHAT !== "off"
+      ? { anonymous: { perHour: num(process.env.ANON_PER_HOUR, 20), globalPerHour: num(process.env.ANON_GLOBAL_PER_HOUR, 300) } }
+      : {}),
+    // Launch-day knobs (docs/DEPLOY.md). Limits are per server instance; the model provider's quota is the real ceiling.
+    limits: { perOwnerPerHour: num(process.env.AGENT_PER_OWNER_PER_HOUR, 30), globalPerHour: num(process.env.AGENT_GLOBAL_PER_HOUR, 600) },
   });
   return server;
 }

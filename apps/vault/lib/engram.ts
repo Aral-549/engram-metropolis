@@ -9,7 +9,8 @@ let config: EngramConfig | undefined;
 
 export function vaultConfig(): EngramConfig {
   if (config) return config;
-  const d = deployments.monadTestnet;
+  // NEXT_PUBLIC_RPC_URL: a dedicated Monad RPC for launch-day load (the public one rate-limits).
+  const d = { ...deployments.monadTestnet, rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || deployments.monadTestnet.rpcUrl };
   const sources: MemorySource[] = [];
   const indexer = process.env.NEXT_PUBLIC_INDEXER_URL;
   if (indexer) sources.push(graphqlSource(indexer));
