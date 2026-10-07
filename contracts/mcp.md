@@ -13,14 +13,16 @@ the stored session that keeps the vault tab unlocked to `contracts/simple-flow.m
 - `packages/mcp` (`engram-mcp`): a stdio MCP server for the MCP client, plus a link server on
   `127.0.0.1:7457` (`ENGRAM_PORT` to change) that the vault tab connects to.
 - Vault page `/link?port=7457#token=<t>`: the "desktop link" tab. It approves the desktop agent once, then acts as
-  that agent's bridge over the link instead of over `postMessage`.
-- One ERC-8004 agent registered on Monad testnet for all MCP clients: "Engram Desktop". Approvals use the origin
-  `http://127.0.0.1:7457`. The read log shows "Engram Desktop (<client name>)", the name taken from the MCP
-  `initialize` request (e.g. "claude-code").
+  that agent's bridge over the link instead of over `postMessage`. It answers with the SDK's own `disclose` and
+  `propose` (same selection, rate limits, logging and quarantine as the web bridge).
+- One ERC-8004 agent registered on Monad testnet for all MCP clients: "Engram Desktop" (id from `ENGRAM_AGENT_ID`,
+  carried in the link URL). Approvals use the origin `http://127.0.0.1:<port>`. The read log shows "Engram Desktop"
+  (the log format has no client field; changing it is a crypto format change, out of scope). The link page shows the
+  client name from the MCP `initialize` request (e.g. "claude-code").
 
 ## Pairing
 1. On start, `engram-mcp` makes a random 128-bit token and prints (stderr) one link:
-   `https://<vault>/link?port=7457#token=<t>`. Tools called before pairing return that link.
+   `https://<vault>/link?port=7457&agent=<id>#token=<t>`. Tools called before pairing return that link.
 2. The vault page reads the token from the URL fragment (never sent to any server), opens
    `ws://127.0.0.1:7457`, and sends `{ type: "hello", v: 1, token }`. The link server accepts exactly one vault
    connection whose token matches and whose `Origin` header is the vault origin; anything else is closed.
@@ -56,15 +58,47 @@ The tool descriptions tell the model that recalled text is data, not instruction
 | M14 | a message on the link that is not valid JSON, is over 64 KB, or has an unknown type | ignored, connection kept; logged | |
 | M15 | the link server port is already taken | `engram-mcp` exits with a clear message naming `ENGRAM_PORT` | |
 | M16 | `engram-mcp` never writes anything but the pairing link and errors to stderr, and nothing to stdout except MCP protocol | MCP clients do not break | stdio rule |
+| M17 | v2 handshake with the right token | linked; `welcome` follows `auth` | MC-1 |
+| M18 | a server that does not know the token answers `hello` v2 (a program squatting the port) | the vault side rejects its `challenge`: no `auth` is sent, no request is answered | MC-1 |
+| M19 | `auth` with a wrong proof, or `auth` before `hello` | closed; not linked | MC-1 |
+| M20 | the vault's v2 `hello` and `auth` frames | never contain the token | MC-1 |
+| M21 | the proof computed by the vault (WebCrypto) and by engram-mcp (node:crypto) for the same inputs | identical | interop |
 
 ## Edge cases that must be covered
 - The link token lives only in the URL fragment and in memory; it changes every time `engram-mcp` starts.
 - Two MCP clients running `engram-mcp` at once: the second exits with M15 unless it is given another port; each
   needs its own link tab.
 - The vault page must keep working if the browser blocks `ws://127.0.0.1` from an https page: it shows what to
-  allow (Chrome local network permission) instead of failing silently. **Spike first (1 hour):** check Chrome,
-  Firefox and Safari. If any of them cannot connect at all, switch the transport to a hosted relay that forwards
-  ciphertext only (key derived from the token), and amend this contract before building it.
+  allow (Chrome local network permission) instead of failing silently.
+- **Spike result (2026-10-08):** Chromium 152 and 153 block an https page's `ws://127.0.0.1` connection by default
+  (`ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS`); with the `local-network-access` permission granted, it connects and
+  round-trips. In a normal browser that is a one-time permission prompt for the vault site. Firefox and Safari were
+  not testable on this machine: untested. If either cannot connect at all, the fallback is a hosted relay that
+  forwards ciphertext only (key derived from the token), with an amendment to this contract first.
+
+## Link protocol (JSON text frames, at most 64 KB each)
+| Direction | Message |
+|---|---|
+| vault -> mcp | `{ type: "hello", v: 1, token }` (first frame) |
+| mcp -> vault | `{ type: "welcome", v: 1, client }` (client name from MCP `initialize`, or "unknown") |
+| mcp -> vault | `{ type: "req", id, op: "recall" \| "remember" \| "status", args }` |
+| vault -> mcp | `{ type: "res", id, ok: true, result }` or `{ type: "res", id, ok: false, code, message }` |
+
+**Mutual handshake (v2, BUGLOG MC-1).** The token never crosses the wire. `nv`, `ns`: 16 random bytes, hex.
+`proof(role) = hex(HMAC-SHA256(key = utf8(token), "engram.link.v2|" + role + "|" + nv + "|" + ns))`.
+
+| Direction | Message |
+|---|---|
+| vault -> mcp | `{ type: "hello", v: 2, nv }` |
+| mcp -> vault | `{ type: "challenge", v: 2, ns, proof: proof("mcp") }` |
+| vault -> mcp | `{ type: "auth", v: 2, proof: proof("vault") }`, only if the server's proof is right; otherwise it closes and warns |
+| mcp -> vault | `{ type: "welcome", v: 1, client }` |
+
+The vault page answers no request before it has verified the server's proof and received `welcome`. The server
+still accepts the v1 `hello` (token in the frame) for compatibility; the vault page never sends it.
+
+The MCP server waits at most 20 s for a `res` (`VAULT_TIMEOUT`). The vault answers `status` with
+`{ unlocked, approved, labels, scope }`.
 
 ## Explicitly out of scope
 - ChatGPT: it needs a remote (hosted) MCP server, not a local one. Later.
@@ -84,5 +118,6 @@ query text, memory text or the token. The vault side logs as the bridge does (di
 ## Status
 - [x] Drafted (2026-10-07)
 - [x] Reviewed by a human (2026-10-07: "okay start building")
-- [ ] Implementation matches this contract
-- [ ] Golden tests exist for every behavior case above
+- [x] Implementation matches this contract (2026-10-08; real-browser pairing checked in Chromium)
+- [x] Golden tests exist for every behavior case above (tests/golden/mcp, tests/golden/vault/vault.link.golden.test.ts);
+  M7 and M13 are covered by the SDK's own disclosure cases (D14, D26) that `answerLink` calls into

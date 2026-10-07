@@ -316,3 +316,10 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** vault resume popup
 - **Regression case added:** `tests/golden/vault/vault.resume2.golden.test.ts` (messages moved to `apps/vault/lib/resume.ts` `resumeMessage`)
 - **Status:** fixed
+
+## 2026-10-08 -- MC-1: the link page sent its token to whatever listened on the port
+- **Symptom:** found in the MCP adversarial review of `apps/vault/app/link/page.tsx`: the page opened `ws://127.0.0.1:<port>`, sent `{ hello, token }` and answered any request that followed. A program squatting the port (engram-mcp not running, an old link reopened from history) would learn the token and could read approved memory through the vault tab.
+- **Root cause:** one-way authentication: the server checked the vault, the vault never checked the server, and the secret itself crossed the wire.
+- **Stage/module:** MCP link protocol (vault `/link` page, `packages/mcp` link server)
+- **Regression cases added:** `tests/golden/mcp/mcp.handshake.golden.test.ts` -- cases M17-M21
+- **Status:** fixed
