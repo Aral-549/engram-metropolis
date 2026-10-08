@@ -344,3 +344,10 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** sdk `EngramOwner.restore` / `OwnerSession`, vault `lib/device.ts`
 - **Regression cases added:** `tests/golden/sdk/sdk.device2.golden.test.ts` -- cases 67-69; `tests/golden/vault/vault.device4.golden.test.ts` -- case C45
 - **Status:** fixed
+
+## 2026-10-08 -- FL-2: memories waiting for a vault could stay unsaved after connecting
+- **Symptom:** live end-to-end run on the deployed apps: after "Turn on memory" succeeded, Sage's waiting memory was not proposed within 120 s in one run (6 s in the runs before and after).
+- **Root cause:** the page tried to send the waiting items once, 1.5 s after connecting. If the strip was not unlocked yet (the popup's handoff or a cold serverless start can take longer), the attempt failed and nothing retried until the user's next message.
+- **Stage/module:** agent app `app/page.tsx` (`flushUnsaved`), now `lib/flush.ts`
+- **Regression case added:** `tests/golden/agent-kit/agent-app.flush.golden.test.ts` -- case C5b
+- **Status:** fixed

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { persona } from "@/lib/personas";
 import { Monogram } from "@/components/Monogram";
 import { Words } from "@/components/Words";
+import { flushWithRetry } from "@/lib/flush";
 
 type Unsaved = { kind: "fact" | "preference" | "note"; text: string };
 type Msg = { role: "user" | "assistant"; content: string; saved?: { text: string; txHash?: string }[]; unsaved?: string[]; used?: string[] };
@@ -86,16 +87,24 @@ export default function Page() {
     store(UNSAVED_KEY, list);
   }
 
-  /** Sends memories that waited for a vault through the bridge, oldest first; keeps whatever fails (C5). */
-  async function flushUnsaved() {
-    if (MODE !== "disclosure" || !bridge.current) return;
-    for (const item of [...unsavedRef.current]) {
-      try {
-        await bridge.current.propose({ kind: item.kind, text: item.text });
-        setUnsavedList(unsavedRef.current.filter((x) => x !== item));
-      } catch {
-        return; // locked or offline: try again on the next message or connect
-      }
+  /** Sends memories that waited for a vault through the bridge, oldest first, retrying while the strip unlocks (C5, C5b). */
+  const flushing = useRef(false);
+  async function flushUnsaved(retry = true) {
+    if (MODE !== "disclosure" || flushing.current) return;
+    flushing.current = true;
+    try {
+      await flushWithRetry({
+        take: () => unsavedRef.current,
+        propose: async (item) => {
+          if (!bridge.current) throw new Error("no strip yet");
+          await bridge.current.propose({ kind: item.kind, text: item.text });
+        },
+        drop: (item) => setUnsavedList(unsavedRef.current.filter((x) => x !== item)),
+        // Sending a message makes one quick attempt; only the connect path keeps retrying (never block a send).
+        isActive: () => retry && !!bridge.current,
+      });
+    } finally {
+      flushing.current = false;
     }
   }
 
@@ -228,7 +237,7 @@ export default function Page() {
     setBusy(true);
     setNotice(null);
     try {
-      if (connected && unsavedRef.current.length) await flushUnsaved();
+      if (connected && unsavedRef.current.length) await flushUnsaved(false);
       // Disclosure mode: before the model sees anything, the vault picks what is relevant to this message.
       const pre = MODE === "disclosure" && connected ? await ask(text.trim(), "relevant", 0) : { entries: [], memory: "none" as const };
       const first = await post("/api/chat", {

@@ -53,6 +53,7 @@ last passkey) asks for the passkey again: that is the one prompt kept on purpose
 | C3 | the page is refreshed during C1/C2 | the conversation and the "not saved yet" list come back (agent page `sessionStorage`: this tab only, see C41) | amended by B2 |
 | C4 | anonymous chat rate limits | 20 chats per hour per IP and the existing global limit; over that, 429 with "Turn on memory or try again later" | cost bound for KIMI |
 | C5 | memory turned on with 2 "not saved yet" items | both are proposed through the bridge right after the unlock (auto-save rules in D apply); the list empties as each is written | |
+| C5b | the strip is not unlocked yet when the page first tries to send the waiting items (slow handoff or cold start) | the page retries after 2, 3, 5, 8 and 13 s while memory is on; items already written are not sent again; after the last try they stay "not saved yet" and go with the next message | BUGLOG FL-2 |
 | C6 | the user clears the conversation | the local conversation and the "not saved yet" list are deleted | |
 
 ## B. Stay signed in on this device
