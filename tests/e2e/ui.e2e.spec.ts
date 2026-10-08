@@ -1,6 +1,6 @@
 // UI checks for contracts/ui.md that a browser can measure: U7 (no sideways scroll on phones), U8 (main actions
 // above the fold), U10 (visible focus), U19 (no internal words), U25 (target sizes), U26 (illustration stops),
-// U27 (separate landing), U28 (chat first). No chain or model needed: vault (3100) and Sage (3201) dev servers only.
+// U27 (separate landing), U28 (chat first), U35 (MCP setup on the landing). No chain or model needed: vault (3100) and Sage (3201) dev servers only.
 import { expect, test, type Page } from "@playwright/test";
 
 const VAULT = "http://localhost:3100/";
@@ -131,4 +131,27 @@ test("U34 Sage with memory on: a Reconnect button under the vault strip opens th
   const popup = page.waitForEvent("popup");
   await reconnect.click();
   await expect((await popup).getByText("wants to read part of your memory")).toBeVisible();
+});
+
+test("U35 landing: MCP setup is on the page, copies the npx command, and links to no repo", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(VAULT);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await expect(page.locator("a[href*='github.com']")).toHaveCount(0);
+    const html = await page.content();
+    expect(html).not.toContain("git clone");
+    expect(html.replace(/engram-vault-mcp/g, "")).not.toMatch(/engram-mcp\b/); // RV-2: someone else's package
+  }
+  const copy = page.getByRole("button", { name: "Copy the Claude Code command" });
+  expect((await copy.boundingBox())!.height).toBeGreaterThanOrEqual(24);
+  await copy.click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("claude mcp add -s user engram -- npx -y engram-vault-mcp");
+  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+  await page.getByText("Cursor or Claude Desktop").click();
+  await page.getByRole("button", { name: "Copy the JSON config" }).click();
+  expect(JSON.parse(await page.evaluate(() => navigator.clipboard.readText()))).toEqual({
+    mcpServers: { engram: { command: "npx", args: ["-y", "engram-vault-mcp"] } },
+  });
 });

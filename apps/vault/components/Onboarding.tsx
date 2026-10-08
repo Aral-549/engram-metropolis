@@ -6,7 +6,6 @@ import { useSession } from "./SessionProvider";
 import { Words } from "./Words";
 
 const REGISTRY = "0x733d1Bf4DC13B721a2Ce3DDCFb444795eFF59d31";
-const REPO = "https://github.com/Aral-549/hippo";
 const SAGE_URL = process.env.NEXT_PUBLIC_SAGE_URL ?? "http://localhost:3201";
 const WAYFARER_URL = process.env.NEXT_PUBLIC_WAYFARER_URL ?? "http://localhost:3202";
 
@@ -24,6 +23,36 @@ const snippet = [
   ["c", "// for each message: the vault shares what fits"],
   ["k", "const { entries } = await vault.disclose(userMessage);"],
 ] as const;
+
+// MCP setup, installed like any MCP server (contracts/ui.md U35, mcp.md "Distribution"). The landing links to no repo
+// (the user's call). Not `npx engram-mcp`: that npm name is someone else's (BUGLOG RV-2).
+const MCP_CLAUDE_CODE = "claude mcp add -s user engram -- npx -y engram-vault-mcp";
+const MCP_JSON = `{
+  "mcpServers": {
+    "engram": { "command": "npx", "args": ["-y", "engram-vault-mcp"] }
+  }
+}`;
+
+function CopyCode({ code, label }: { code: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard blocked: the command is still on screen to select */
+    }
+  }
+  return (
+    <div className="mt-2 flex items-start gap-2">
+      <pre className="min-w-0 flex-1 overflow-x-auto rounded-[14px] border-[3px] border-ink bg-ink px-3 py-2.5 font-mono text-[13px] text-white">{code}</pre>
+      <button type="button" onClick={() => void copy()} className="btn shrink-0 px-3 text-sm" aria-label={copied ? "Copied" : `Copy ${label}`}>
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
+  );
+}
 
 export function Onboarding({ locked = false }: { locked?: boolean }) {
   const { signUp, signIn, status, error } = useSession();
@@ -143,12 +172,24 @@ export function Onboarding({ locked = false }: { locked?: boolean }) {
             <div className="paper-card min-w-0 p-6">
               <p className="text-xs font-bold uppercase tracking-widest">For builders · no code</p>
               <h2 className="mt-3 font-display text-3xl leading-tight">Give Claude Code or Cursor a memory you control.</h2>
-              <p className="mt-3 font-medium leading-relaxed">One command adds Engram as an MCP server. Your AI tool asks your vault; it holds no keys.</p>
-              {/* Only show the one-liner once the npm package exists; until then the guide has the from-source command. */}
-              {process.env.NEXT_PUBLIC_MCP_ON_NPM === "1" ? (
-                <pre className="mt-4 overflow-x-auto rounded-[14px] border-[3px] border-ink bg-ink p-4 font-mono text-[13px] text-white">claude mcp add engram -- npx -y engram-mcp</pre>
-              ) : null}
-              <a href={`${REPO}/blob/main/docs/MCP.md`} target="_blank" rel="noreferrer" className="btn mt-5 px-5">Set it up</a>
+              <p className="mt-3 font-medium leading-relaxed">Engram runs as an MCP server. Your AI tool asks your vault; it holds no keys. Needs Node 22.</p>
+              <ol className="mt-5 space-y-4">
+                <li>
+                  <p className="font-bold">1. Add it to Claude Code</p>
+                  <CopyCode code={MCP_CLAUDE_CODE} label="the Claude Code command" />
+                  <details className="mt-2">
+                    <summary className="inline-flex min-h-6 cursor-pointer items-center text-sm font-bold underline underline-offset-4">Cursor or Claude Desktop</summary>
+                    <p className="mt-2 text-sm font-medium">Add this to <code className="font-mono">.cursor/mcp.json</code> or <code className="font-mono">claude_desktop_config.json</code>:</p>
+                    <CopyCode code={MCP_JSON} label="the JSON config" />
+                  </details>
+                </li>
+                <li>
+                  <p className="font-bold">2. Link your vault</p>
+                  <p className="mt-1 font-medium leading-relaxed">
+                    Ask Claude to check your Engram vault status. Open the link it gives, allow local network access, unlock and approve. Keep that tab open.
+                  </p>
+                </li>
+              </ol>
             </div>
             <div className="paper-card min-w-0 p-6">
               <p className="text-xs font-bold uppercase tracking-widest">For builders · your own agent</p>
@@ -158,7 +199,6 @@ export function Onboarding({ locked = false }: { locked?: boolean }) {
                   <span key={i} className={`block ${t === "c" ? "text-[#b8b0a4]" : t === "v" ? "text-pop" : ""}`}>{line}</span>
                 ))}
               </pre>
-              <a href={`${REPO}/blob/main/docs/INTEGRATE.md`} target="_blank" rel="noreferrer" className="btn mt-5 px-5">Read the integration guide</a>
             </div>
           </section>
 

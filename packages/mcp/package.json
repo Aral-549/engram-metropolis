@@ -1,18 +1,40 @@
 {
-  "name": "engram-mcp",
+  "name": "engram-vault-mcp",
   "version": "0.1.0",
-  "description": "Give Claude Code, Claude Desktop or Cursor a memory you control: an MCP server that asks your Engram vault and holds no keys (spec: contracts/mcp.md)",
+  "description": "Give Claude Code, Claude Desktop or Cursor a memory you control: an MCP server that asks your Engram vault and holds no keys",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude-code",
+    "cursor",
+    "memory",
+    "monad",
+    "passkey"
+  ],
   "license": "MIT",
   "type": "module",
-  "bin": { "engram-mcp": "./dist/cli.js" },
+  "bin": {
+    "engram-vault-mcp": "./dist/cli.js"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

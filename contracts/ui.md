@@ -120,6 +120,7 @@ excluded and keep their warning). Closes itself when the list is empty.
 | U32 | an agent reply with `**bold**`, `*italic*`, `- item` / `1. item` lists, `### heading`, `---` | rendered as bold, italic, lists, a bold line and a divider; no raw `*`, `#` or `---` on screen | BUGLOG MD-1 |
 | U33 | a reply containing `<script>`, `<img onerror>` or a `[link](javascript:...)` | shown as plain text; nothing is executed and no link is made | safe rendering |
 | U34 | an agent page with memory on (the vault strip shown) | a "Reconnect" text button under the strip, at least 24 px tall, that opens the approval popup | FL-3 |
+| U35 | vault landing, "For builders · no code" card | MCP setup on the page, like any MCP server: (1) the Claude Code command `claude mcp add -s user engram -- npx -y engram-vault-mcp` with a Copy button (at least 24 px, says "Copied" after), and the Cursor / Claude Desktop JSON with its own Copy button; (2) "ask Claude to check your Engram vault status, open the link it gives, allow local network access, unlock and approve, keep the tab open". The landing has no GitHub links (amended 2026-10-09, user: no pointing at the repo); no `git clone`; no `npx engram-mcp` (RV-2). Commands scroll inside their box; no page scroll at 320-390 px | 2026-10-09 |
 | U30 | the outbox is retrying | the pill reads "Saving…"; when written it turns into the `pop` "Saved" pill and flies into the vault | network-tolerant feedback |
 
 ## Edge cases that must be covered

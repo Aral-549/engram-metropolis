@@ -124,7 +124,7 @@ function Link() {
     return (
       <Shell>
         <h1 className="font-display text-3xl">This link is not complete</h1>
-        <p className="mt-2 text-ink-soft">Copy the whole link that engram-mcp printed in your terminal, including the part after #.</p>
+        <p className="mt-2 text-ink-soft">Ask your AI tool to check your Engram vault status and open the link it gives you. Copy all of it, including the part after #.</p>
       </Shell>
     );
   }
@@ -135,22 +135,22 @@ function Link() {
       <h1 className="mt-2 font-display text-[2.1rem] leading-tight">Give {client} a memory you control</h1>
       <p className="mt-2 text-sm text-ink-soft">
         {conn === "linked"
-          ? "Connected to engram-mcp on this computer. Keep this tab open while you use it."
+          ? "Connected to your AI tool on this computer. Keep this tab open while you use it."
           : conn === "connecting"
-            ? "Connecting to engram-mcp on this computer…"
+            ? "Connecting to your AI tool on this computer…"
             : conn === "closed"
-              ? "engram-mcp stopped. Start it again, then open the new link it prints."
+              ? "Your AI tool closed the connection. Restart it, ask for your vault status, and open the new link."
               : null}
       </p>
       {conn === "impostor" ? (
         <p role="alert" className="mt-4 rounded-sm border border-rust/40 bg-rust-soft px-3 py-2 text-sm text-rust">
-          Something on this computer answered on that port but is not the engram-mcp that printed this link. Nothing was shared.
-          Stop it, start engram-mcp again, and open the new link it prints.
+          Something on this computer answered on that port but is not the Engram server that made this link. Nothing was shared.
+          Stop it, restart your AI tool, and open the new link it gives.
         </p>
       ) : null}
       {conn === "blocked" ? (
         <p role="alert" className="mt-4 rounded-sm border border-rust/40 bg-rust-soft px-3 py-2 text-sm text-rust">
-          Your browser is holding the connection to engram-mcp. Check that it is running, then allow local network access for this site (Chrome and
+          Your browser is holding the connection to your AI tool. Check that it is running, then allow local network access for this site (Chrome and
           Firefox ask once; if you said no, use the icon at the left of the address bar) and reload this page.
         </p>
       ) : null}

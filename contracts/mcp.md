@@ -10,7 +10,7 @@ Hands off: selection, logging, quarantine and review to `contracts/disclosure.md
 the stored session that keeps the vault tab unlocked to `contracts/simple-flow.md` B.
 
 ## Components
-- `packages/mcp` (`engram-mcp`): a stdio MCP server for the MCP client, plus a link server on
+- `packages/mcp` (`engram-mcp`, published as `engram-vault-mcp`): a stdio MCP server for the MCP client, plus a link server on
   `127.0.0.1:7457` (`ENGRAM_PORT` to change) that the vault tab connects to.
 - Vault page `/link?port=7457#token=<t>`: the "desktop link" tab. It approves the desktop agent once, then acts as
   that agent's bridge over the link instead of over `postMessage`. It answers with the SDK's own `disclose` and
@@ -107,10 +107,15 @@ The MCP server waits at most 20 s for a `res` (`VAULT_TIMEOUT`). The vault answe
 - One link serving several vaults or several people.
 
 ## Distribution (needs the user)
-- `npx engram-mcp` needs an npm publish from the user's account (outward-facing; confirm before publishing).
-  Until then: `npx -y github:<user>/<repo>` with a `bin` entry, or a clone + `npm run mcp`.
-- Install snippets for Claude Code (`claude mcp add engram -- npx -y engram-mcp`), Claude Desktop and Cursor
-  (JSON config) in `docs/MCP.md`.
+- npm package **`engram-vault-mcp`** (amended 2026-10-09: `engram-mcp` belongs to an unrelated project, BUGLOG RV-2).
+  It contains only the built MCP server (`dist/`) and a README; no `repository` field and no repo link (the user's
+  call: the site and the package do not point people at the repo). Publishing is from the user's account
+  (outward-facing; confirm first).
+- Install, like any MCP server: Claude Code `claude mcp add -s user engram -- npx -y engram-vault-mcp`; Claude Desktop
+  and Cursor `{ "command": "npx", "args": ["-y", "engram-vault-mcp"] }`. Shown on the vault landing (ui.md U35) and
+  in the package README.
+- M22: `npx -y engram-vault-mcp` from a folder outside the repo, packed from `packages/mcp`, starts and lists the three
+  tools (checked against `npm pack` output before publishing).
 
 ## Logging
 `engram-mcp` (stderr, JSON lines): `{ stage: "mcp", op: "tool" | "link", tool?, ok, code?, durationMs }`. Never

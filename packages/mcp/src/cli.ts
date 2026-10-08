@@ -30,6 +30,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  err(`engram-mcp: ${e instanceof Error ? e.message : String(e)}`);
+  err(`engram-vault-mcp: ${e instanceof Error ? e.message : String(e)}`);
   process.exit(1);
 });

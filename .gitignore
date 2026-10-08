@@ -35,3 +35,6 @@ apps/*/.next/
 apps/*/next-env.d.ts
 *.tsbuildinfo
 .next-*/
+
+# vercel CLI link (local only)
+.vercel/

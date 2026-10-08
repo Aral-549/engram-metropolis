@@ -379,3 +379,59 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** agent app header, vault `lib/resume.ts` messages
 - **Regression case added:** `tests/golden/vault/vault.resume3.golden.test.ts` -- case C46; `tests/e2e/ui.e2e.spec.ts` -- U34
 - **Status:** fixed
+
+## 2026-10-08 -- RV-1: the landing's builder links point at the frozen hacksprint repo
+- **Symptom:** live vault landing: "Set it up" opens `github.com/Aral-549/hippo/blob/main/docs/MCP.md`, which is a 404 (checked with `gh api`); "Read the integration guide" also goes to the hacksprint repo. `docs/INTEGRATE.md` line 27 tells builders to clone `Aral-549/hippo`.
+- **Root cause:** `REPO` in `apps/vault/components/Onboarding.tsx` was not updated when Metropolis work moved to `Aral-549/engram-metropolis`.
+- **Stage/module:** vault landing (`Onboarding.tsx`), `docs/INTEGRATE.md`
+- **Regression case added:** `tests/e2e/ui.e2e.spec.ts` -- U35 (no GitHub link on the landing)
+- **Status:** fixed 2026-10-09 (landing links to no repo, per the user; docs/INTEGRATE.md clone line updated). Live site needs a redeploy
+
+## 2026-10-08 -- RV-2: the npm name `engram-mcp` belongs to an unrelated package
+- **Symptom:** `npm view engram-mcp` returns v1.0.0 by another maintainer ("MCP server for Engram: persistent memory for AI", created 2026-01-07). The landing shows `claude mcp add engram -- npx -y engram-mcp` once `NEXT_PUBLIC_MCP_ON_NPM=1`, and contracts/mcp.md "Distribution" plans that command: users would run a stranger's code.
+- **Root cause:** the package name was never checked against the registry.
+- **Stage/module:** `packages/mcp/package.json`, landing MCP block, contracts/mcp.md
+- **Regression case added:** `tests/e2e/ui.e2e.spec.ts` -- U35 (no `engram-mcp` on the landing)
+- **Status:** fixed 2026-10-09: package renamed `engram-vault-mcp` (free on npm), contracts/mcp.md amended. Not published yet (needs the user's npm account)
+
+## 2026-10-08 -- RV-3: a second engram-mcp exits, so a second Claude Code or Cursor session shows the server as failed
+- **Symptom:** two MCP clients started against default settings: the second prints "port 7457 is already in use" and exits; its client reports the connection closed (reproduced with the MCP SDK client over stdio).
+- **Root cause:** M15 is implemented as specified (exit), but running two sessions at once is the normal case for Claude Code users.
+- **Stage/module:** `packages/mcp/src/cli.ts`, `link.ts`; contracts/mcp.md M15
+- **Regression case added:** pending
+- **Status:** open (needs a contract change first)
+
+## 2026-10-08 -- RV-4: agent chat: saves stop flying into the vault after "Clear this chat"
+- **Symptom:** (from the code) `flown` in `apps/agent/app/page.tsx` keeps the old message count after `clearChat`, so in the new conversation no saved pill flies until it is longer than the cleared one (U3). It is also 0 after a reload, so the last reply's pills fly again on refresh.
+- **Root cause:** `flown` is never reset with the message list.
+- **Stage/module:** agent app chat page
+- **Regression case added:** pending
+- **Status:** open
+
+## 2026-10-08 -- RV-5: agent chat: a 401 deletes what the user typed
+- **Symptom:** (from the code) on a 401, `send` restores the old message list after it already cleared the input, so the message is gone from both the input and the chat.
+- **Root cause:** `setMessages(messages)` without `setInput(text)`.
+- **Stage/module:** agent app chat page (`send`)
+- **Regression case added:** pending
+- **Status:** open
+
+## 2026-10-08 -- RV-6: "Clear this chat" deletes memories waiting for a vault without asking
+- **Symptom:** (from the code) `clearChat` empties the unsaved list too; closing the tab asks first (C40), clearing does not.
+- **Root cause:** `clearChat` calls `setUnsavedList([])` with no confirmation.
+- **Stage/module:** agent app chat page
+- **Regression case added:** pending
+- **Status:** open
+
+## 2026-10-08 -- RV-7: U28 says the chat input is focused on first visit; it is not
+- **Symptom:** no `autoFocus` or `.focus()` in the agent app; the U28 e2e test checks only visible and enabled.
+- **Root cause:** implementation and test both miss "focused" from contracts/ui.md U28.
+- **Stage/module:** agent app chat page, `tests/e2e/ui.e2e.spec.ts`
+- **Regression case added:** pending
+- **Status:** open
+
+## 2026-10-09 -- RV-8: the install command in docs/MCP.md fails outside the repo
+- **Symptom:** `node --import tsx /path/to/engram/packages/mcp/src/cli.ts` run from any other folder exits with `ERR_MODULE_NOT_FOUND` (tsx). MCP clients start the server from the user's project folder, so the documented Claude Code, Claude Desktop and Cursor setups all fail.
+- **Root cause:** Node resolves `--import tsx` from the current folder, not from the script's location.
+- **Stage/module:** `docs/MCP.md` install snippets
+- **Regression case added:** contracts/mcp.md M22 (packed package run with npx from outside the repo; checked 2026-10-09, not automated)
+- **Status:** fixed 2026-10-09: docs/MCP.md uses the npm package, and the repo's own tsx for development

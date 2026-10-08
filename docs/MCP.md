@@ -1,39 +1,32 @@
 # Give Claude Code, Claude Desktop or Cursor a memory you control
 
-`engram-mcp` connects your AI tool to your own Engram vault. Your tool asks; your vault, open in a browser tab,
+`engram-vault-mcp` connects your AI tool to your own Engram vault. Your tool asks; your vault, open in a browser tab,
 answers with only what is relevant, from the topics you approved. You see every read, what your tool saves arrives as
-a suggestion you confirm, and you can revoke it in one click. `engram-mcp` holds no keys and stores no memory.
+a suggestion you confirm, and you can revoke it in one click. It holds no keys and stores no memory.
 
 Spec: [`contracts/mcp.md`](../contracts/mcp.md).
 
 ## Install
 
-Until the npm package is published, run it from this repository (Node 22+):
+Needs Node 22 or newer. Claude Code:
 
 ```sh
-git clone <this repo> engram && cd engram && npm install
+claude mcp add -s user engram -- npx -y engram-vault-mcp
 ```
 
-### Claude Code
-
-```sh
-claude mcp add engram -- node --import tsx /path/to/engram/packages/mcp/src/cli.ts
-```
-
-### Claude Desktop and Cursor
-
-Add to `claude_desktop_config.json` (Claude Desktop) or `.cursor/mcp.json` (Cursor):
+Claude Desktop (`claude_desktop_config.json`) or Cursor (`.cursor/mcp.json`):
 
 ```json
 {
   "mcpServers": {
-    "engram": {
-      "command": "node",
-      "args": ["--import", "tsx", "/path/to/engram/packages/mcp/src/cli.ts"]
-    }
+    "engram": { "command": "npx", "args": ["-y", "engram-vault-mcp"] }
   }
 }
 ```
+
+From a clone of this repo instead (development): use the repo's own `tsx`, since `node --import tsx` only works when
+started from inside the repo (BUGLOG RV-8):
+`claude mcp add engram -- "$PWD/node_modules/.bin/tsx" "$PWD/packages/mcp/src/cli.ts"`.
 
 ## Link your vault (once per start)
 
