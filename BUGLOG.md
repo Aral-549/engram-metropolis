@@ -372,3 +372,10 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** agent app reply rendering
 - **Regression case added:** `tests/golden/agent-kit/agent-app.markdown.golden.test.ts` -- cases U32, U33
 - **Status:** fixed
+
+## 2026-10-08 -- FL-3: "This app isn't approved" with no way out
+- **Symptom:** reported by the user on the live Wayfarer: the Resume popup kept saying "This app isn't approved. Open it and press Turn on memory.", but the page showed the vault strip ("Resume memory"), not a Turn on memory button.
+- **Root cause:** the page shows the strip whenever it believes it is connected (a flag from an earlier connect). If the vault the user now unlocks has no approval for the app (most likely: the app was approved with another passkey, e.g. "New here? Create a vault" after an older saved session was discarded), Resume correctly refuses, and the page offered no way to approve again. The shared indexer was checked and fully synced, so this was not lag.
+- **Stage/module:** agent app header, vault `lib/resume.ts` messages
+- **Regression case added:** `tests/golden/vault/vault.resume3.golden.test.ts` -- case C46; `tests/e2e/ui.e2e.spec.ts` -- U34
+- **Status:** fixed

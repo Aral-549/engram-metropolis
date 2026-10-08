@@ -298,7 +298,13 @@ export default function Page() {
           </div>
           <div className="ml-auto w-[min(320px,56vw)]">
             {memoryOn ? (
-              <div ref={bridgeMount} aria-label="Your Engram vault" />
+              <>
+                <div ref={bridgeMount} aria-label="Your Engram vault" />
+                {/* Always a way to approve again with the vault you have now (FL-3). */}
+                <button onClick={() => void connect()} className="mt-0.5 block min-h-6 w-full text-right text-xs font-bold underline underline-offset-2">
+                  Reconnect
+                </button>
+              </>
             ) : (
               <button onClick={() => void connect()} className="btn btn-primary w-full justify-center px-3" aria-label={`Turn on memory${unsaved.length ? ` (${unsaved.length} waiting)` : ""}`}>
                 <span className="whitespace-nowrap">Turn on memory</span>

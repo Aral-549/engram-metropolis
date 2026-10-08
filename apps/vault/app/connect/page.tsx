@@ -219,6 +219,9 @@ function Consent() {
                 New here? Create a vault and approve
               </button>
             ) : null}
+            {!session ? (
+              <p className="text-center text-xs font-medium text-ink-soft">Already made one? Use Unlock and approve. A second vault starts empty.</p>
+            ) : null}
             <button className="mt-1 self-center px-4 py-2.5 text-sm font-bold underline underline-offset-4" onClick={deny} disabled={phase === "granting"}>
               Deny
             </button>

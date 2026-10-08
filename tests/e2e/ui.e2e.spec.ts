@@ -121,3 +121,14 @@ test("U19 U25 connect popup: copy rules and target sizes", async ({ page }) => {
       .map(({ t, r }) => `${t} ${Math.round(r.width)}x${Math.round(r.height)}`));
   expect(small).toEqual([]);
 });
+
+test("U34 Sage with memory on: a Reconnect button under the vault strip opens the approval popup", async ({ page }) => {
+  await page.addInitScript({ content: 'localStorage.setItem("engram-connected-assistant","1")' });
+  await page.goto(SAGE);
+  const reconnect = page.getByRole("button", { name: "Reconnect" });
+  await expect(reconnect).toBeVisible();
+  expect((await reconnect.boundingBox())!.height).toBeGreaterThanOrEqual(24);
+  const popup = page.waitForEvent("popup");
+  await reconnect.click();
+  await expect((await popup).getByText("wants to read part of your memory")).toBeVisible();
+});

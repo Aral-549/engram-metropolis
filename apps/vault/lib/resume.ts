@@ -44,8 +44,8 @@ export function resumeMessage(r: ResumeResult | { ok: false; reason: "UNREACHABL
   switch (r.reason) {
     case "UNREACHABLE": return "Couldn't reach your vault just now. Close this window and press Resume again.";
     case "UNKNOWN_ORIGIN": return "This request doesn't say which app it came from.";
-    case "NOT_APPROVED": return "This app isn't approved. Open it and press Turn on memory.";
+    case "NOT_APPROVED": return "This app isn't approved for the vault you unlocked. Close this window and press Reconnect under the vault strip.";
     case "ORIGIN": return "This app is approved for a different site, so nothing was shared.";
-    case "EXPIRED": return "This app's approval has expired. Open it and press Turn on memory.";
+    case "EXPIRED": return "This app's approval has expired. Close this window and press Reconnect under the vault strip.";
   }
 }

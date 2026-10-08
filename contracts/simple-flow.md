@@ -100,6 +100,7 @@ The app page's own chat (anonymous conversation and "not saved yet" memories) al
 | C43 | the app tab stays open after "Lock" on the vault site | that tab's strip stays unlocked until the tab closes (the vault site cannot reach it); the next open needs Resume, which asks for the passkey | honest limit |
 | C44 | a browser that does not partition iframe storage (the strip and the vault site share IndexedDB) | the strip's tab copy and its cleanup use their own database (`engram-device-tab`), so they never read, overwrite or delete the vault site's 7-day copy (`engram-device`) | BUGLOG DS-1 |
 | C45 | vault created in Sage's popup at T; Wayfarer's popup (a new window, restored from the device record) approves at T + 5 min | no passkey prompt: the device record carries the time of the last real ceremony, so C16's 10-minute window holds across windows | BUGLOG FL-1 |
+| C46 | an app marked connected whose vault (the one the user unlocks) has no approval for it, e.g. after approving it with another passkey | the page always offers **Reconnect** under the vault strip, which runs the normal approval with the current vault; the Resume popup's refusal points to it | BUGLOG FL-3 |
 
 ## C. Connect in one step, without waiting for the chain
 The popup unlocks with the stored session or one passkey, then shows the approval. Approve asks for the passkey

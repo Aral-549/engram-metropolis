@@ -119,6 +119,7 @@ excluded and keep their warning). Closes itself when the list is empty.
 | U31 | 2 suggestions waiting | the strip shows a "2 to review" badge button; tapping it opens the review popup | |
 | U32 | an agent reply with `**bold**`, `*italic*`, `- item` / `1. item` lists, `### heading`, `---` | rendered as bold, italic, lists, a bold line and a divider; no raw `*`, `#` or `---` on screen | BUGLOG MD-1 |
 | U33 | a reply containing `<script>`, `<img onerror>` or a `[link](javascript:...)` | shown as plain text; nothing is executed and no link is made | safe rendering |
+| U34 | an agent page with memory on (the vault strip shown) | a "Reconnect" text button under the strip, at least 24 px tall, that opens the approval popup | FL-3 |
 | U30 | the outbox is retrying | the pill reads "Saving…"; when written it turns into the `pop` "Saved" pill and flies into the vault | network-tolerant feedback |
 
 ## Edge cases that must be covered
