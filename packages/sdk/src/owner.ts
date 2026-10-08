@@ -120,7 +120,7 @@ type Reauth = () => Promise<Uint8Array>;
 
 /** Per-session timing (contracts/sdk.md "Device sessions"). Defaults: REAUTH_WINDOW_MS and SESSION_IDLE_MS. */
 export type SessionOptions = { reauthWindowMs?: number; idleMs?: number };
-type OpenExtra = SessionOptions & { credentialId?: string; ceremony?: boolean };
+type OpenExtra = SessionOptions & { credentialId?: string; ceremony?: boolean; ceremonyAt?: number };
 const extraOf = (o: SessionOptions, credentialId?: string, ceremony = true): OpenExtra => ({
   reauthWindowMs: o.reauthWindowMs, idleMs: o.idleMs, credentialId, ceremony,
 });
@@ -152,10 +152,11 @@ export class EngramOwner {
    * Re-opens a session from a root secret the vault kept on this device (contracts/sdk.md #60-#66). No ceremony:
    * the first grant or approve always asks for the passkey, because a restored session is not a recent ceremony.
    */
-  static async restore(opts: { config: EngramConfig; rpId: string; prfOutput: Uint8Array; credentialId: string; webAuthnClient?: WebAuthnClient; clock?: () => number } & SessionOptions) {
+  static async restore(opts: { config: EngramConfig; rpId: string; prfOutput: Uint8Array; credentialId: string; ceremonyAt?: number; webAuthnClient?: WebAuthnClient; clock?: () => number } & SessionOptions) {
     if (typeof opts.credentialId !== "string" || !opts.credentialId) fail("INPUT_INVALID", "restore needs the passkey credentialId");
     if (!(opts.prfOutput instanceof Uint8Array) || opts.prfOutput.length !== 32) fail("INPUT_INVALID", "restore needs a 32-byte root secret");
-    return OwnerSession.open(opts.config, opts.prfOutput, reauthFor(opts.rpId, opts.credentialId, opts.webAuthnClient), opts.clock, extraOf(opts, opts.credentialId, false));
+    // ceremonyAt (sdk.md #68, #69): when the passkey was last really used, carried by the device record (BUGLOG FL-1).
+    return OwnerSession.open(opts.config, opts.prfOutput, reauthFor(opts.rpId, opts.credentialId, opts.webAuthnClient), opts.clock, { ...extraOf(opts, opts.credentialId, false), ceremonyAt: opts.ceremonyAt });
   }
 }
 
@@ -221,8 +222,11 @@ export class OwnerSession {
     this.#account = toViemAccount(this.#signing) as LocalAccount;
     this.owner = acc.owner;
     this.#lastActivity = clock();
-    // A restored session never counts as a recent ceremony (sdk.md #61).
-    this.#lastCeremony = extra.ceremony === false ? Number.NEGATIVE_INFINITY : this.#lastActivity;
+    // A restored session never counts as a recent ceremony (sdk.md #61), unless the device record says when the real
+    // one was; a time that is not a finite past instant is ignored (#69).
+    const at = extra.ceremonyAt;
+    const carried = typeof at === "number" && Number.isFinite(at) && at <= this.#lastActivity ? at : Number.NEGATIVE_INFINITY;
+    this.#lastCeremony = extra.ceremony === false ? carried : this.#lastActivity;
   }
 
   static async open(config: EngramConfig, prf: Uint8Array, reauth: Reauth | undefined, clock: () => number = Date.now, extra?: OpenExtra) {
@@ -233,6 +237,11 @@ export class OwnerSession {
    * A copy of the root secret, for the vault app's device store and the popup-to-bridge handoff only
    * (contracts/simple-flow.md B, C). Callers must zero it after use.
    */
+  /** When this session last completed a real passkey ceremony; undefined if it never did (sdk.md #67). */
+  get lastCeremonyAt(): number | undefined {
+    return Number.isFinite(this.#lastCeremony) ? this.#lastCeremony : undefined;
+  }
+
   exportRootSecret(): Uint8Array {
     if (this.#ended) throw ended();
     return new Uint8Array(this.#prf);

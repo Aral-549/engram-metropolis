@@ -337,3 +337,10 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** vault `lib/device.ts` (`tabKV`), `components/SessionProvider.tsx` (`device`)
 - **Regression case added:** `tests/golden/vault/vault.device3.golden.test.ts` -- case C44
 - **Status:** fixed
+
+## 2026-10-08 -- FL-1: the second app's approval asked for the passkey again (C16 not met)
+- **Symptom:** found while reviewing the live end-to-end run: Wayfarer's connect popup is a new window that restores the vault from the device record, and a restored session never counts as a recent ceremony, so approving Wayfarer 30 s after creating the vault would prompt again (a second QR scan on a phone-authenticator setup). The test did not catch it because its passkey stand-in answers prompts silently.
+- **Root cause:** the 10-minute re-prompt window lived only in the in-memory session; the device record did not carry when the last real ceremony happened.
+- **Stage/module:** sdk `EngramOwner.restore` / `OwnerSession`, vault `lib/device.ts`
+- **Regression cases added:** `tests/golden/sdk/sdk.device2.golden.test.ts` -- cases 67-69; `tests/golden/vault/vault.device4.golden.test.ts` -- case C45
+- **Status:** fixed

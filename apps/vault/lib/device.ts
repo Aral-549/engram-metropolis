@@ -8,12 +8,14 @@ export const STAY_MS = 7 * 24 * 3600 * 1000;
 
 export type KV = { get(k: string): Promise<unknown>; set(k: string, v: unknown): Promise<void>; del(k: string): Promise<void> };
 
-type Rec = { v: 1; owner: string; credentialId: string; iv: Uint8Array; ct: Uint8Array; exp: number };
+/** `ceremonyAt`: when the passkey was last really used (BUGLOG FL-1), so a new window keeps the 10-minute window. */
+type Rec = { v: 1; owner: string; credentialId: string; iv: Uint8Array; ct: Uint8Array; exp: number; ceremonyAt?: number };
 
 const isRec = (r: unknown): r is Rec => {
   const x = r as Rec;
   return !!x && x.v === 1 && typeof x.owner === "string" && typeof x.credentialId === "string" && !!x.credentialId &&
-    x.iv instanceof Uint8Array && x.iv.length === 12 && x.ct instanceof Uint8Array && x.ct.length === 48 && Number.isFinite(x.exp);
+    x.iv instanceof Uint8Array && x.iv.length === 12 && x.ct instanceof Uint8Array && x.ct.length === 48 && Number.isFinite(x.exp) &&
+    (x.ceremonyAt === undefined || Number.isFinite(x.ceremonyAt));
 };
 const isKey = (k: unknown): k is CryptoKey => typeof CryptoKey !== "undefined" && k instanceof CryptoKey;
 
@@ -43,9 +45,11 @@ export function deviceStore(opts: { kv: KV; clock?: () => number }) {
       const secret = session.exportRootSecret();
       try {
         const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
-        const aad = new TextEncoder().encode(`engram.device.v1:${session.owner}`);
+        const at = session.lastCeremonyAt;
+        // The ceremony time is bound into the encryption: editing it in storage voids the record (FL-1).
+        const aad = new TextEncoder().encode(`engram.device.v1:${session.owner}:${at ?? "-"}`);
         const ct = new Uint8Array(await subtle.encrypt({ name: "AES-GCM", iv, additionalData: aad }, key!, secret as Uint8Array<ArrayBuffer>));
-        await kv.set("session", { v: 1, owner: session.owner, credentialId: session.credentialId, iv, ct, exp: now() + STAY_MS } satisfies Rec);
+        await kv.set("session", { v: 1, owner: session.owner, credentialId: session.credentialId, iv, ct, exp: now() + STAY_MS, ...(at !== undefined ? { ceremonyAt: at } : {}) } satisfies Rec);
       } finally {
         secret.fill(0);
       }
@@ -71,9 +75,9 @@ export function deviceStore(opts: { kv: KV; clock?: () => number }) {
       }
       let secret: Uint8Array | undefined;
       try {
-        const aad = new TextEncoder().encode(`engram.device.v1:${rec.owner}`);
+        const aad = new TextEncoder().encode(`engram.device.v1:${rec.owner}:${rec.ceremonyAt ?? "-"}`);
         secret = new Uint8Array(await subtle.decrypt({ name: "AES-GCM", iv: rec.iv as Uint8Array<ArrayBuffer>, additionalData: aad }, key, rec.ct as Uint8Array<ArrayBuffer>));
-        const s = await EngramOwner.restore({ ...o, prfOutput: secret, credentialId: rec.credentialId });
+        const s = await EngramOwner.restore({ ...o, prfOutput: secret, credentialId: rec.credentialId, ...(rec.ceremonyAt !== undefined ? { ceremonyAt: rec.ceremonyAt } : {}) });
         if (s.owner.toLowerCase() !== rec.owner.toLowerCase()) throw new Error("owner mismatch");
         await kv.set("session", { ...rec, exp: now() + STAY_MS }); // the 7 days restart (C8)
         return s;

@@ -250,7 +250,9 @@ Never logs plaintext, PRF output, keys, or wraps.
 - `approve` and `disapprove` also return `seq` and `exp` of the policy entry they wrote (vault-internal; never sent to
   apps, D33), so the connect popup can hand the approval to the bridge (disclosure.md D39).
 - `session.primeApproval(policy)`: see disclosure.md D39-D43.
-- `EngramOwner.restore({ config, rpId, prfOutput, credentialId, webAuthnClient?, reauthWindowMs?, idleMs?, clock? })`:
+- `session.lastCeremonyAt?: number`: when this session last completed a real passkey ceremony (signUp, signIn or a
+  re-prompt); undefined for a restored session that was given no `ceremonyAt`.
+- `EngramOwner.restore({ config, rpId, prfOutput, credentialId, ceremonyAt?, webAuthnClient?, reauthWindowMs?, idleMs?, clock? })`:
   opens a session from a stored root secret **without a ceremony**: the first `grant` or `approve` always prompts
   (a restored session is not a recent ceremony). `credentialId` is required.
 
@@ -263,3 +265,6 @@ Never logs plaintext, PRF output, keys, or wraps.
 | 64 | `exportRootSecret()` after `end()` | `SESSION_ENDED` | |
 | 65 | `restore` without `credentialId`, or with a prfOutput that is not 32 bytes | `INPUT_INVALID` | |
 | 66 | `JSON.stringify` / inspect of a restored session | no secret bytes, no credential secrets | like #42 |
+| 67 | `session.lastCeremonyAt` after signUp at time T | T; after a successful re-prompt at T2, T2; a restored session without `ceremonyAt` reports none | BUGLOG FL-1 |
+| 68 | `restore({ ..., ceremonyAt: T })` where T is 4 min ago, window 10 min; then `approve` | no prompt (the window counts from the real ceremony, carried by the device record) | FL-1, simple-flow C16 |
+| 69 | `restore({ ..., ceremonyAt })` with T 11 min ago, T in the future, or not a finite number | the first `approve` prompts (a bad or stale time never widens the window) | FL-1 |
