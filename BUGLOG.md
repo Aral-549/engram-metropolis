@@ -351,3 +351,10 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** agent app `app/page.tsx` (`flushUnsaved`), now `lib/flush.ts`
 - **Regression case added:** `tests/golden/agent-kit/agent-app.flush.golden.test.ts` -- case C5b
 - **Status:** fixed
+
+## 2026-10-08 -- MK-1: tool-call markup shown in the chat
+- **Symptom:** reported by the user on the live Wayfarer: the chat showed `<function_calls><invoke name="recall"><arg name="query">diet allergies food preferences</arg>...` as text.
+- **Root cause:** Wayfarer's persona prompt (added the same day) tells the model to call `recall` before planning. With the vault strip locked, the server offers no tools, so Kimi K2.5 wrote the call as text (reproduced 4/4 against Bedrock), and the server returned model text unfiltered.
+- **Stage/module:** agent-kit `createAgentServer` (prompt and model-output handling), agent app personas
+- **Regression cases added:** `tests/golden/agent-kit/agent-kit.markup.golden.test.ts` -- cases A40-A44
+- **Status:** fixed

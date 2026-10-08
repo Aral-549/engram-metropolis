@@ -186,6 +186,18 @@ text as "not saved yet". The page sends `client` (the caller's IP, from the rout
 | A38 | `anonymous.globalPerHour: 5`; 7 anonymous chats from 7 IPs | 5 get 200, the last 2 get 429 | AN-2 |
 | A39 | memory off; the model calls `recall` anyway (not offered) | answered locally with an error ("memory is off"); no `pending`, so no vault read can reach an anonymous turn | AN-3 |
 
+## Tool-call markup in replies (2026-10-08, BUGLOG MK-1)
+Some models (Kimi K2.5 on Bedrock) write a tool call as text (`<function_calls><invoke name="recall">...`) when
+the prompt asks for a tool that is not offered. The user must never see that markup.
+
+| # | Input | Expected output | Notes |
+|---|---|---|---|
+| A40 | memory locked (no tools offered); the model's text contains a `<function_calls>` block | the reply keeps the surrounding text, the block is removed | MK-1 |
+| A41 | recall offered; the model returns only a `<function_calls><invoke name="recall"><arg name="query">diet</arg>...` text and no structured call | treated as a `recall` call (pending, args `{ query: "diet", mode: "relevant" }`); no markup reaches the reply | |
+| A42 | markup naming a tool that is not offered (or unknown, e.g. `delete_all`) | removed, never executed | |
+| A43 | the persona's `recallHint` | in the system prompt only when `recall` is offered; with no tools the prompt says not to write tool calls or markup | |
+| A44 | Kimi's native tool-call tokens (`<\|tool_calls_section_begin\|>` ... `<\|tool_calls_section_end\|>`) in the text | removed | |
+
 ## Launch settings (2026-10-08)
 Rate limits and the RPC URL are read from env with the defaults above unchanged (docs/DEPLOY.md "Launch-day
 settings"): `AGENT_PER_OWNER_PER_HOUR`, `AGENT_GLOBAL_PER_HOUR`, `ANON_PER_HOUR`, `ANON_GLOBAL_PER_HOUR`,

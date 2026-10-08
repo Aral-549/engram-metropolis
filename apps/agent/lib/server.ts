@@ -48,7 +48,7 @@ export function agentServer(): AgentServer {
     ...offline,
     kimi: { baseUrl: process.env.KIMI_BASE_URL ?? "https://api.moonshot.ai/v1", apiKey: need("KIMI_API_KEY"), model: process.env.KIMI_MODEL ?? "kimi-k2.6" },
     origin: need("APP_ORIGIN"),
-    persona: { name: p.name, description: p.description, systemPrompt: p.systemPrompt, canWrite: p.scope === "readwrite", labels: p.labels },
+    persona: { name: p.name, description: p.description, systemPrompt: p.systemPrompt, canWrite: p.scope === "readwrite", labels: p.labels, ...(p.recallHint ? { recallHint: p.recallHint } : {}) },
     // Chat without a vault (contracts/apps.md A28-A36); ANON_CHAT=off turns it off.
     ...(mode === "disclosure" && process.env.ANON_CHAT !== "off"
       ? { anonymous: { perHour: num(process.env.ANON_PER_HOUR, 20), globalPerHour: num(process.env.ANON_GLOBAL_PER_HOUR, 300) } }

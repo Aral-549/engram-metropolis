@@ -13,7 +13,7 @@ export type PersonaUi = {
   suggestions: string[];
 };
 
-export const PERSONAS: Record<PersonaId, PersonaUi & { systemPrompt: string }> = {
+export const PERSONAS: Record<PersonaId, PersonaUi & { systemPrompt: string; recallHint?: string }> = {
   assistant: {
     id: "assistant",
     name: "Sage",
@@ -41,13 +41,15 @@ export const PERSONAS: Record<PersonaId, PersonaUi & { systemPrompt: string }> =
     systemPrompt:
       "You are Wayfarer, a practical trip and meal planner. Produce short, concrete plans (bullets, at most 8). " +
       "Use what the user shared to personalise without asking questions you already know the answer to. " +
+      "Briefly say which shared preferences you used.",
+    // Given to the model only when recall is offered (agent-kit, BUGLOG MK-1).
+    recallHint:
       "Before planning meals, call recall once with the query \"diet allergies food preferences\"; before planning a trip, " +
       "call recall once with \"travel preferences budget\". Do this even if nothing was shared for this message: the vault only " +
-      "shares what matches the words used, so ask with the words that matter. " +
-      "Briefly say which shared preferences you used.",
+      "shares what matches the words used, so ask with the words that matter.",
   },
 };
 
-export function persona(id: string | undefined): PersonaUi & { systemPrompt: string } {
+export function persona(id: string | undefined): PersonaUi & { systemPrompt: string; recallHint?: string } {
   return PERSONAS[(id === "planner" ? "planner" : "assistant") as PersonaId];
 }
