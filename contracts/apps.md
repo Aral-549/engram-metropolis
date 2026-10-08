@@ -69,6 +69,9 @@ Both agent apps are thin Next.js apps over one tested package:
 - Each saved memory shows a chip "Saved to your memory" with the Monad tx link.
 
 ## App 3: planner (`apps/planner`) -- separate ERC-8004 agent, scope READ on `preferences`
+- Before planning meals or trips it calls `recall` with a fixed topical query ("diet allergies food preferences",
+  "travel preferences budget"), because the vault selects by words and "plan three dinners" alone matches nothing
+  (found in the live run, 2026-10-08). Still a minimal, logged read.
 - Trip/meal planner. On connect it recalls and personalizes the first answer without asking any questions.
 - After the owner revokes it in the vault: next request shows "Access revoked by you" and falls back to
   asking questions. New memories written later are never visible to it.
