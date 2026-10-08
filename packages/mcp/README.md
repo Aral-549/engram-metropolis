@@ -1,6 +1,6 @@
 # engram-vault-mcp
 
-Give Claude Code, Claude Desktop or Cursor a memory you control.
+Give your AI tool (Claude Code, Codex, Gemini CLI, Cursor, Claude Desktop) a memory you control.
 
 Your AI tool asks your Engram vault, which stays open in a browser tab. The vault answers with only what is relevant,
 from the topics you approved. You see every read, anything your tool saves arrives as a suggestion you confirm, and
@@ -14,7 +14,19 @@ Claude Code:
 claude mcp add -s user engram -- npx -y engram-vault-mcp
 ```
 
-Claude Desktop (`claude_desktop_config.json`) or Cursor (`.cursor/mcp.json`):
+Codex:
+
+```sh
+codex mcp add engram -- npx -y engram-vault-mcp
+```
+
+Gemini CLI:
+
+```sh
+gemini mcp add -s user engram npx -y engram-vault-mcp
+```
+
+Claude Desktop (`claude_desktop_config.json`), Cursor (`.cursor/mcp.json`) or any other MCP client:
 
 ```json
 {

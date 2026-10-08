@@ -8,6 +8,19 @@ export type LinkRes = { type: "res"; id: string; ok: true; result: unknown } | {
 
 const KINDS = new Set(["fact", "preference", "note"]);
 
+/** A friendly name for the MCP client from its `initialize` name (contracts/mcp.md "Components"); tool-neutral by default. */
+export function clientLabel(raw: unknown): string {
+  const name = typeof raw === "string" ? raw.trim() : "";
+  if (!name || name.toLowerCase() === "unknown") return "your AI tool";
+  const n = name.toLowerCase();
+  if (n === "claude-code") return "Claude Code";
+  if (n === "claude-ai") return "Claude Desktop";
+  if (n.includes("codex")) return "Codex";
+  if (n.includes("gemini")) return "Gemini CLI";
+  if (n.includes("cursor")) return "Cursor";
+  return [...name].slice(0, 40).join("");
+}
+
 export async function answerLink(session: OwnerSession | null, frame: unknown, ctx: LinkCtx): Promise<LinkRes> {
   const f = frame as { type?: unknown; id?: unknown; op?: unknown; args?: unknown } | null;
   const id = f && typeof f === "object" && typeof f.id === "string" ? f.id.slice(0, 64) : "";

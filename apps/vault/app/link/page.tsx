@@ -3,7 +3,7 @@
 // answers its requests with the same rules as any app (lib/link.ts). Keys never leave this tab. Not frameable.
 import { useEffect, useRef, useState } from "react";
 import { KNOWN_LABELS } from "@/lib/discover";
-import { answerLink, vaultHandshake } from "@/lib/link";
+import { answerLink, clientLabel, vaultHandshake } from "@/lib/link";
 import { Seal } from "@/components/Seal";
 import { SessionProvider, useSession } from "@/components/SessionProvider";
 
@@ -84,7 +84,7 @@ function Link() {
       if (m.type === "welcome") {
         welcomed = true;
         setConn("linked");
-        if (m.client && m.client !== "unknown") setClient(m.client);
+        setClient(clientLabel(m.client));
         return;
       }
       if (m.type !== "req" || !welcomed) return;
@@ -132,10 +132,10 @@ function Link() {
   return (
     <Shell>
       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-seal">Desktop link</p>
-      <h1 className="mt-2 font-display text-[2.1rem] leading-tight">Give {client} a memory you control</h1>
+      <h1 className="mt-2 font-display text-[2.1rem] leading-tight">Give your AI tool a memory you control</h1>
       <p className="mt-2 text-sm text-ink-soft">
         {conn === "linked"
-          ? "Connected to your AI tool on this computer. Keep this tab open while you use it."
+          ? `Connected to ${client} on this computer. Keep this tab open while you use it.`
           : conn === "connecting"
             ? "Connecting to your AI tool on this computer…"
             : conn === "closed"
@@ -169,7 +169,7 @@ function Link() {
       ) : approved === false ? (
         <div className="paper-card mt-6 space-y-4 p-5 text-sm">
           <p>
-            <span className="font-medium">{client}</span> will ask your vault while you work. It never gets a key, and every read shows up in your vault.
+            Your vault answers <span className="font-medium">{client}</span> while you work. It never gets a key, and every read shows up in your vault.
           </p>
           <fieldset>
             <legend className="font-mono text-[11px] uppercase tracking-wider text-ink-soft">Topics it may ask about</legend>
@@ -186,7 +186,7 @@ function Link() {
             <label className="flex items-center gap-1.5"><input type="radio" checked={scope === "read"} onChange={() => setScope("read")} /> Read only</label>
             <label className="flex items-center gap-1.5"><input type="radio" checked={scope === "readwrite"} onChange={() => setScope("readwrite")} /> Read, and suggest memories for me to review</label>
           </fieldset>
-          <p className="text-xs text-ink-soft">What your vault shares goes to {client}&apos;s AI provider so it can answer you. For 30 days, or until you revoke it.</p>
+          <p className="text-xs text-ink-soft">What your vault shares goes to the AI provider behind {client} so it can answer you. For 30 days, or until you revoke it.</p>
           <button className="btn btn-primary w-full justify-center px-5 py-3" onClick={() => void approve()} disabled={busy || !labels.length}>
             <Seal size={18} /> {busy ? "Approving…" : "Approve"}
           </button>

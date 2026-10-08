@@ -149,7 +149,12 @@ test("U35 landing: MCP setup is on the page, copies the npx command, and links t
   await copy.click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("claude mcp add -s user engram -- npx -y engram-vault-mcp");
   await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
-  await page.getByText("Cursor or Claude Desktop").click();
+  await expect(page.getByRole("heading", { name: "Give your AI tool a memory you control." })).toBeVisible();
+  await page.getByText("Other tools").click();
+  await page.getByRole("button", { name: "Copy the Codex command" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("codex mcp add engram -- npx -y engram-vault-mcp");
+  await page.getByRole("button", { name: "Copy the Gemini CLI command" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("gemini mcp add -s user engram npx -y engram-vault-mcp");
   await page.getByRole("button", { name: "Copy the JSON config" }).click();
   expect(JSON.parse(await page.evaluate(() => navigator.clipboard.readText()))).toEqual({
     mcpServers: { engram: { command: "npx", args: ["-y", "engram-vault-mcp"] } },

@@ -17,8 +17,11 @@ the stored session that keeps the vault tab unlocked to `contracts/simple-flow.m
   `propose` (same selection, rate limits, logging and quarantine as the web bridge).
 - One ERC-8004 agent registered on Monad testnet for all MCP clients: "Engram Desktop", #2070 (default; `ENGRAM_AGENT_ID` overrides,
   carried in the link URL). Approvals use the origin `http://127.0.0.1:<port>`. The read log shows "Engram Desktop"
-  (the log format has no client field; changing it is a crypto format change, out of scope). The link page shows the
-  client name from the MCP `initialize` request (e.g. "claude-code").
+  (the log format has no client field; changing it is a crypto format change, out of scope). The link page's wording
+  is tool-neutral ("Give your AI tool a memory you control"); it names the client only as a friendly label derived
+  from the MCP `initialize` name (amended 2026-10-09): `claude-code` -> "Claude Code", `claude-ai` -> "Claude Desktop",
+  a name containing `codex` -> "Codex", `gemini` -> "Gemini CLI", `cursor` -> "Cursor"; any other non-empty name is
+  shown as sent (at most 40 characters); empty or "unknown" -> "your AI tool".
 
 ## Pairing
 1. On start, `engram-mcp` makes a random 128-bit token and prints (stderr) one link:
@@ -111,8 +114,10 @@ The MCP server waits at most 20 s for a `res` (`VAULT_TIMEOUT`). The vault answe
   It contains only the built MCP server (`dist/`) and a README; no `repository` field and no repo link (the user's
   call: the site and the package do not point people at the repo). Publishing is from the user's account
   (outward-facing; confirm first).
-- Install, like any MCP server: Claude Code `claude mcp add -s user engram -- npx -y engram-vault-mcp`; Claude Desktop
-  and Cursor `{ "command": "npx", "args": ["-y", "engram-vault-mcp"] }`. Shown on the vault landing (ui.md U35) and
+- Install, like any MCP server: Claude Code `claude mcp add -s user engram -- npx -y engram-vault-mcp`; Codex
+  `codex mcp add engram -- npx -y engram-vault-mcp`; Gemini CLI `gemini mcp add -s user engram npx -y engram-vault-mcp`
+  (both checked 2026-10-09 against scratch configs); Claude Desktop and Cursor
+  `{ "command": "npx", "args": ["-y", "engram-vault-mcp"] }`. Shown on the vault landing (ui.md U35) and
   in the package README.
 - M22: `npx -y engram-vault-mcp` from a folder outside the repo, packed from `packages/mcp`, starts and lists the three
   tools (checked against `npm pack` output before publishing).

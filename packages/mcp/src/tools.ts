@@ -30,7 +30,7 @@ function explain(e: unknown, link: Link): string {
 export function createEngramMcp(o: { link: Link; log?: (line: Record<string, unknown>) => void }): McpServer {
   const { link } = o;
   const log = o.log ?? (() => {});
-  const server = new McpServer({ name: "engram", version: "0.1.0" });
+  const server = new McpServer({ name: "engram", version: "0.1.1" });
   server.server.oninitialized = () => link.setClient(server.server.getClientVersion()?.name ?? "unknown");
 
   let named = false;

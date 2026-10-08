@@ -27,6 +27,8 @@ const snippet = [
 // MCP setup, installed like any MCP server (contracts/ui.md U35, mcp.md "Distribution"). The landing links to no repo
 // (the user's call). Not `npx engram-mcp`: that npm name is someone else's (BUGLOG RV-2).
 const MCP_CLAUDE_CODE = "claude mcp add -s user engram -- npx -y engram-vault-mcp";
+const MCP_CODEX = "codex mcp add engram -- npx -y engram-vault-mcp";
+const MCP_GEMINI = "gemini mcp add -s user engram npx -y engram-vault-mcp";
 const MCP_JSON = `{
   "mcpServers": {
     "engram": { "command": "npx", "args": ["-y", "engram-vault-mcp"] }
@@ -171,22 +173,27 @@ export function Onboarding({ locked = false }: { locked?: boolean }) {
           <section id="builders" className="grid gap-8 border-t-[3px] border-ink py-14 md:grid-cols-2">
             <div className="paper-card min-w-0 p-6">
               <p className="text-xs font-bold uppercase tracking-widest">For builders · no code</p>
-              <h2 className="mt-3 font-display text-3xl leading-tight">Give Claude Code or Cursor a memory you control.</h2>
-              <p className="mt-3 font-medium leading-relaxed">Engram runs as an MCP server. Your AI tool asks your vault; it holds no keys. Needs Node 22.</p>
+              <h2 className="mt-3 font-display text-3xl leading-tight">Give your AI tool a memory you control.</h2>
+              <p className="mt-3 font-medium leading-relaxed">Works with Claude Code, Codex, Gemini CLI, Cursor or any MCP client. Your tool asks your vault; it holds no keys. Needs Node 22.</p>
               <ol className="mt-5 space-y-4">
                 <li>
-                  <p className="font-bold">1. Add it to Claude Code</p>
+                  <p className="font-bold">1. Add it to your tool (Claude Code shown)</p>
                   <CopyCode code={MCP_CLAUDE_CODE} label="the Claude Code command" />
                   <details className="mt-2">
-                    <summary className="inline-flex min-h-6 cursor-pointer items-center text-sm font-bold underline underline-offset-4">Cursor or Claude Desktop</summary>
-                    <p className="mt-2 text-sm font-medium">Add this to <code className="font-mono">.cursor/mcp.json</code> or <code className="font-mono">claude_desktop_config.json</code>:</p>
+                    <summary className="inline-flex min-h-6 cursor-pointer items-center text-sm font-bold underline underline-offset-4">Other tools</summary>
+                    <p className="mt-3 text-sm font-bold">Codex</p>
+                    <CopyCode code={MCP_CODEX} label="the Codex command" />
+                    <p className="mt-3 text-sm font-bold">Gemini CLI</p>
+                    <CopyCode code={MCP_GEMINI} label="the Gemini CLI command" />
+                    <p className="mt-3 text-sm font-bold">Cursor, Claude Desktop and others</p>
+                    <p className="mt-1 text-sm font-medium">Add this to <code className="font-mono">.cursor/mcp.json</code>, <code className="font-mono">claude_desktop_config.json</code> or your tool&apos;s MCP config:</p>
                     <CopyCode code={MCP_JSON} label="the JSON config" />
                   </details>
                 </li>
                 <li>
                   <p className="font-bold">2. Link your vault</p>
                   <p className="mt-1 font-medium leading-relaxed">
-                    Ask Claude to check your Engram vault status. Open the link it gives, allow local network access, unlock and approve. Keep that tab open.
+                    Ask your AI tool to check your Engram vault status. Open the link it gives, allow local network access, unlock and approve. Keep that tab open.
                   </p>
                 </li>
               </ol>

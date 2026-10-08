@@ -1,8 +1,10 @@
 {
   "name": "engram-vault-mcp",
-  "version": "0.1.0",
-  "description": "Give Claude Code, Claude Desktop or Cursor a memory you control: an MCP server that asks your Engram vault and holds no keys",
+  "version": "0.1.1",
+  "description": "Give your AI tool (Claude Code, Codex, Gemini CLI, Cursor) a memory you control: an MCP server that asks your Engram vault and holds no keys",
   "keywords": [
+    "codex",
+    "gemini-cli",
     "mcp",
     "model-context-protocol",
     "claude-code",
