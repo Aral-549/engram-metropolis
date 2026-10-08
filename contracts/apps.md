@@ -198,6 +198,15 @@ the prompt asks for a tool that is not offered. The user must never see that mar
 | A43 | the persona's `recallHint` | in the system prompt only when `recall` is offered; with no tools the prompt says not to write tool calls or markup | |
 | A44 | Kimi's native tool-call tokens (`<\|tool_calls_section_begin\|>` ... `<\|tool_calls_section_end\|>`) in the text | removed | |
 
+## A strip that does not answer (2026-10-08, BUGLOG HG-1)
+An unlocked strip says nothing to a site it has no approval for (D9), so the page must never wait long on it.
+
+| # | Input | Expected output | Notes |
+|---|---|---|---|
+| A45 | the strip does not answer a request | the page gives up after 5 s (the SDK default stays 10 s; the demo page passes 5 s) | HG-1 |
+| A46 | one strip timeout during a reply | the rest of that reply asks the vault nothing more: pending `recall` / `remember` steps are answered `VAULT_UNAVAILABLE` at once, so a reply never waits more than about 5 s on the vault | |
+| A47 | a strip timeout | the page shows "Your vault isn't answering this app. Press Turn on memory to reconnect." and shows the Turn on memory button again | |
+
 ## Launch settings (2026-10-08)
 Rate limits and the RPC URL are read from env with the defaults above unchanged (docs/DEPLOY.md "Launch-day
 settings"): `AGENT_PER_OWNER_PER_HOUR`, `AGENT_GLOBAL_PER_HOUR`, `ANON_PER_HOUR`, `ANON_GLOBAL_PER_HOUR`,

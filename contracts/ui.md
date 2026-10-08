@@ -117,6 +117,8 @@ excluded and keep their warning). Closes itself when the list is empty.
 | U28 | an agent chat page, first visit, no vault | the input is ready and focused; no sign-in, popup or banner before the first message | chat first |
 | U29 | memory off, Sage replies with a memory | an outlined "Not saved yet" pill and a "Turn on memory" button; the vault strip is grey | |
 | U31 | 2 suggestions waiting | the strip shows a "2 to review" badge button; tapping it opens the review popup | |
+| U32 | an agent reply with `**bold**`, `*italic*`, `- item` / `1. item` lists, `### heading`, `---` | rendered as bold, italic, lists, a bold line and a divider; no raw `*`, `#` or `---` on screen | BUGLOG MD-1 |
+| U33 | a reply containing `<script>`, `<img onerror>` or a `[link](javascript:...)` | shown as plain text; nothing is executed and no link is made | safe rendering |
 | U30 | the outbox is retrying | the pill reads "Saving…"; when written it turns into the `pop` "Saved" pill and flies into the vault | network-tolerant feedback |
 
 ## Edge cases that must be covered

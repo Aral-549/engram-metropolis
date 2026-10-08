@@ -358,3 +358,17 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** agent-kit `createAgentServer` (prompt and model-output handling), agent app personas
 - **Regression cases added:** `tests/golden/agent-kit/agent-kit.markup.golden.test.ts` -- cases A40-A44
 - **Status:** fixed
+
+## 2026-10-08 -- HG-1: replies could keep "thinking" for 20-40 s
+- **Symptom:** reported by the user on the live apps: Sage and Wayfarer "just keep thinking", and Wayfarer "doesn't seem to connect to memory".
+- **Root cause:** an unlocked strip stays silent toward a site it has no approval for (D9, by design). The page then waited the SDK's full 10 s on the pre-turn disclosure and again on every recall round, with no hint of what was wrong. A fresh live run answered in 3-7 s, so the user's browser was most likely in that state (an approval not visible to the strip's session), which the page could not get out of.
+- **Stage/module:** agent app `app/page.tsx` (bridge calls), SDK `openVaultBridge` timeout option
+- **Regression case added:** `tests/golden/agent-kit/agent-app.bridge-timeout.golden.test.ts` -- cases A45-A47
+- **Status:** fixed
+
+## 2026-10-08 -- MD-1: model formatting shown as raw symbols
+- **Symptom:** reported by the user: answers full of `*` and `--`.
+- **Root cause:** Kimi formats with Markdown (`**bold**`, `- lists`, `---`); the chat displayed reply text as-is.
+- **Stage/module:** agent app reply rendering
+- **Regression case added:** `tests/golden/agent-kit/agent-app.markdown.golden.test.ts` -- cases U32, U33
+- **Status:** fixed

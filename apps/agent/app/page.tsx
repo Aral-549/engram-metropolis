@@ -6,6 +6,8 @@ import { persona } from "@/lib/personas";
 import { Monogram } from "@/components/Monogram";
 import { Words } from "@/components/Words";
 import { flushWithRetry } from "@/lib/flush";
+import { BRIDGE_TIMEOUT_MS, STUCK_NOTICE, turnGuard, type TurnGuard } from "@/lib/vault-turn";
+import { ReplyText } from "@/components/ReplyText";
 
 type Unsaved = { kind: "fact" | "preference" | "note"; text: string };
 type Msg = { role: "user" | "assistant"; content: string; saved?: { text: string; txHash?: string }[]; unsaved?: string[]; used?: string[] };
@@ -89,7 +91,7 @@ export default function Page() {
 
   /** Sends memories that waited for a vault through the bridge, oldest first, retrying while the strip unlocks (C5, C5b). */
   const flushing = useRef(false);
-  async function flushUnsaved(retry = true) {
+  async function flushUnsaved(retry = true, guard?: TurnGuard) {
     if (MODE !== "disclosure" || flushing.current) return;
     flushing.current = true;
     try {
@@ -97,7 +99,8 @@ export default function Page() {
         take: () => unsavedRef.current,
         propose: async (item) => {
           if (!bridge.current) throw new Error("no strip yet");
-          await bridge.current.propose({ kind: item.kind, text: item.text });
+          const call = () => bridge.current!.propose({ kind: item.kind, text: item.text });
+          await (guard ? guard.run(call) : call());
         },
         drop: (item) => setUnsavedList(unsavedRef.current.filter((x) => x !== item)),
         // Sending a message makes one quick attempt; only the connect path keeps retrying (never block a send).
@@ -126,7 +129,8 @@ export default function Page() {
   // Mount the vault bridge strip once connected (contracts/disclosure.md "Bridge").
   useEffect(() => {
     if (MODE !== "disclosure" || !(connected || connecting) || !bridgeMount.current) return;
-    const b = openVaultBridge({ vaultUrl: VAULT, agentId: AGENT_ID, mount: bridgeMount.current });
+    // A silent strip costs at most 5 s (contracts/apps.md A45, BUGLOG HG-1).
+    const b = openVaultBridge({ vaultUrl: VAULT, agentId: AGENT_ID, mount: bridgeMount.current, timeoutMs: BRIDGE_TIMEOUT_MS });
     bridge.current = b;
     return () => {
       b.close();
@@ -160,10 +164,10 @@ export default function Page() {
   }, [messages]);
 
   /** Asks the vault (through the bridge) and maps its refusals onto what the server needs to know. */
-  async function ask(query: string, mode: "relevant" | "full", round: number): Promise<{ entries: DisclosedEntry[]; memory: "ok" | "locked" | "revoked" | "none" }> {
+  async function ask(query: string, mode: "relevant" | "full", round: number, guard: TurnGuard): Promise<{ entries: DisclosedEntry[]; memory: "ok" | "locked" | "revoked" | "none" }> {
     if (!bridge.current) return { entries: [], memory: "none" };
     try {
-      return { entries: (await bridge.current.disclose(query.slice(0, 500), { mode, round })).entries, memory: "ok" };
+      return { entries: (await guard.run(() => bridge.current!.disclose(query.slice(0, 500), { mode, round }))).entries, memory: "ok" };
     } catch (e) {
       const code = (e as { code?: string }).code;
       return { entries: [], memory: code === "VAULT_LOCKED" ? "locked" : code === "NOT_APPROVED" || code === "EXPIRED" ? "revoked" : "none" };
@@ -171,7 +175,7 @@ export default function Page() {
   }
 
   /** Runs pending tool calls through the vault until the server has a final reply (at most 3 tool rounds). */
-  async function finish(res: Response, body: ChatReply, held: string[], used: string[]): Promise<{ res: Response; body: ChatReply }> {
+  async function finish(res: Response, body: ChatReply, held: string[], used: string[], guard: TurnGuard): Promise<{ res: Response; body: ChatReply }> {
     for (let round = 1; round <= 8 && res.ok && body.pending && body.continuation; round++) {
       const p = body.pending;
       let result: Record<string, unknown>;
@@ -185,11 +189,11 @@ export default function Page() {
           }
           result = { id: p.id, ok: false, code: "NOT_CONNECTED" };
         } else if (p.tool === "recall") {
-          const r = await bridge.current!.disclose(String(p.args.query ?? ""), { mode: p.args.mode === "full" ? "full" : "relevant", round: Math.min(round, 3) });
+          const r = await guard.run(() => bridge.current!.disclose(String(p.args.query ?? ""), { mode: p.args.mode === "full" ? "full" : "relevant", round: Math.min(round, 3) }));
           used.push(...r.entries.map((x) => x.text));
           result = { id: p.id, ok: true, entries: r.entries };
         } else {
-          const w = await bridge.current!.propose({ kind: p.args.kind as "fact", text: String(p.args.text ?? "") });
+          const w = await guard.run(() => bridge.current!.propose({ kind: p.args.kind as "fact", text: String(p.args.text ?? "") }));
           result = { id: p.id, ok: true, seq: w.seq.toString() }; // an opaque receipt: nothing that names you onchain
         }
       } catch (e) {
@@ -237,9 +241,10 @@ export default function Page() {
     setBusy(true);
     setNotice(null);
     try {
-      if (connected && unsavedRef.current.length) await flushUnsaved(false);
+      const guard = turnGuard(); // one short wait per reply at most, whatever the strip does (HG-1)
+      if (connected && unsavedRef.current.length) await flushUnsaved(false, guard);
       // Disclosure mode: before the model sees anything, the vault picks what is relevant to this message.
-      const pre = MODE === "disclosure" && connected ? await ask(text.trim(), "relevant", 0) : { entries: [], memory: "none" as const };
+      const pre = MODE === "disclosure" && connected ? await ask(text.trim(), "relevant", 0, guard) : { entries: [], memory: "none" as const };
       const first = await post("/api/chat", {
         // The server only keeps the last 20 turns; never send more than that (long chats would hit the body cap).
         messages: next.slice(-20).map(({ role, content }) => ({ role, content: content.slice(0, 4000) })),
@@ -247,7 +252,12 @@ export default function Page() {
       });
       const held: string[] = [];
       const used: string[] = pre.entries.map((x) => x.text);
-      const done = await finish(first, ((await first.json().catch(() => ({}))) ?? {}) as ChatReply, held, used);
+      const done = await finish(first, ((await first.json().catch(() => ({}))) ?? {}) as ChatReply, held, used, guard);
+      if (guard.stuck) {
+        // The strip stayed silent (not approved for this site, or not reachable): offer to reconnect (A47).
+        setFlag(false);
+        setNotice(STUCK_NOTICE);
+      }
       const res = done.res;
       const body = done.body;
       if (res.status === 401) {
@@ -344,7 +354,7 @@ export default function Page() {
                   ) : null}
                   {m.content ? (
                     <div className="paper-card px-4 py-3">
-                      <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                      <ReplyText text={m.content} />
                     </div>
                   ) : null}
                   {m.saved?.length || m.unsaved?.length ? (
