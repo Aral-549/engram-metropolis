@@ -8,6 +8,7 @@ import { Words } from "@/components/Words";
 import { flushWithRetry } from "@/lib/flush";
 import { BRIDGE_TIMEOUT_MS, STUCK_NOTICE, turnGuard, type TurnGuard } from "@/lib/vault-turn";
 import { ReplyText } from "@/components/ReplyText";
+import { ReportBug } from "@/components/ReportBug";
 
 type Unsaved = { kind: "fact" | "preference" | "note"; text: string };
 type Msg = { role: "user" | "assistant"; content: string; saved?: { text: string; txHash?: string }[]; unsaved?: string[]; used?: string[] };
@@ -425,10 +426,12 @@ export default function Page() {
           />
           <button className="btn btn-primary px-5" disabled={busy || !input.trim()}>Send</button>
         </form>
-        <p className="mt-4 text-center text-xs font-medium text-ink-soft">
+        <div className="mt-4 text-center text-xs font-medium text-ink-soft">
           Runs on KIMI. {P.name} sees only what your vault shares.
           {messages.length ? <> · <button className="underline" onClick={clearChat}>Clear this chat</button></> : null}
-        </p>
+          {" · "}
+          <ReportBug app={P.id === "planner" ? "wayfarer" : "sage"} endpoint={`${VAULT}/api/report`} />
+        </div>
       </section>
     </main>
   );

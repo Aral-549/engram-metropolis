@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { KNOWN_LABELS, addLabel } from "@/lib/discover";
 import { explain } from "@/lib/engram";
 import { Seal } from "@/components/Seal";
+import { ReportBug } from "@/components/ReportBug";
 import { SessionProvider, useSession } from "@/components/SessionProvider";
 import { agentCard } from "@/components/useAgentCards";
 import { HANDOFF_TYPE, sendHandoff } from "@/lib/handoff";
@@ -249,6 +250,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <header className="mb-8 flex items-center gap-2">
         <Seal size={22} />
         <span className="font-display text-xl">Engram</span>
+        <ReportBug app="vault" className="ml-auto" />
       </header>
       {children}
     </main>

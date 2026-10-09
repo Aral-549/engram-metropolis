@@ -1,6 +1,7 @@
 "use client";
 // Vault landing (contracts/ui.md "Vault landing", U27): try the models, or open your vault. Never contains a chat.
 import { useState } from "react";
+import { ReportBug } from "./ReportBug";
 import { Seal } from "./Seal";
 import { useSession } from "./SessionProvider";
 import { Words } from "./Words";
@@ -211,6 +212,7 @@ export function Onboarding({ locked = false }: { locked?: boolean }) {
 
           <footer className="flex flex-col gap-3 border-t-[3px] border-ink py-8 text-xs font-medium sm:flex-row sm:items-center sm:justify-between">
             <span>Built on Monad, with ERC-8004 agent identities, Mera passkeys and Envio</span>
+            <ReportBug app="vault" />
             <a href={`https://testnet.monadvision.com/address/${REGISTRY}`} target="_blank" rel="noreferrer" className="font-mono underline underline-offset-4">
               MemoryRegistry {REGISTRY.slice(0, 6)}…{REGISTRY.slice(-4)}
             </a>

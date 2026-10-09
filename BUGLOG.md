@@ -435,3 +435,10 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** `docs/MCP.md` install snippets
 - **Regression case added:** contracts/mcp.md M22 (packed package run with npx from outside the repo; checked 2026-10-09, not automated)
 - **Status:** fixed 2026-10-09: docs/MCP.md uses the npm package, and the repo's own tsx for development
+
+## 2026-10-09 -- RP-1: the bug-report dialog broke Sage's page markup and styling (caught before release)
+- **Symptom:** adversarial pass on the new "Report a bug" control: on Sage and Wayfarer the `<dialog>` sat inside the footer `<p>` (invalid HTML: React hydration error), and it inherited the footer's centered `text-xs` (centered title, tiny buttons; seen in a 390 px screenshot).
+- **Root cause:** the control was dropped into a paragraph; a modal dialog renders in the top layer but still inherits CSS from its DOM parent.
+- **Stage/module:** agent app footer (`app/page.tsx`), `components/ReportBug.tsx` (both copies)
+- **Regression case added:** `tests/e2e/report.e2e.spec.ts` -- R1 R2 sage (fails on hydration errors); the style fix pins the dialog's own text size and alignment
+- **Status:** fixed

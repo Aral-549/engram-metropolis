@@ -3,6 +3,7 @@ import type { GrantView, LogView, PolicyView, Proposal, RecalledAnyEntry } from 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addLabel, discoverLabels, isValidLabel, type DiscoveredNamespace } from "@/lib/discover";
 import { addressUrl, expiresIn, relativeTime, shortAddr, txUrl, untilSettled } from "@/lib/engram";
+import { ReportBug } from "./ReportBug";
 import { Seal } from "./Seal";
 import { Words } from "./Words";
 import { useSession } from "./SessionProvider";
@@ -58,9 +59,12 @@ export function Dashboard() {
             </button>
           ))}
         </nav>
-        <button className="btn btn-ghost mt-auto justify-center px-3 py-2 text-sm" onClick={lock}>
-          Lock vault
-        </button>
+        <div className="mt-auto flex flex-col gap-3">
+          <button className="btn btn-ghost justify-center px-3 py-2 text-sm" onClick={lock}>
+            Lock vault
+          </button>
+          <ReportBug app="vault" className="self-start" />
+        </div>
       </aside>
       <section className="px-6 py-8 md:px-12 md:py-12">
         {!process.env.NEXT_PUBLIC_INDEXER_URL ? (

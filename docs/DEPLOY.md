@@ -118,3 +118,12 @@ The hacksprint deployments (Vercel `hippo-plum`, `hippo-foio`, `hippo-ntj5`, the
 Limits are counted per server instance, so on Vercel the overall numbers are approximate; the model provider's quota
 and budget are the real ceiling. Each relayed write costs about 50k gas (about 0.005 MON at 102 gwei, measured
 2026-10-08); a user who turns on memory makes roughly 8-12 of them.
+
+## Bug reports (contracts/feedback.md)
+
+The "Report a bug" control on every page posts to the vault's `/api/report`, which stores reports in Upstash for
+Redis (Vercel Marketplace resource `upstash-kv-celeste-engine`, connected to `engram-vault`; it sets `KV_REST_API_URL`
+and `KV_REST_API_TOKEN`). The site cannot read reports. To read them: from the repo root (linked to `engram-vault`),
+`npx vercel@latest env pull .env.local --yes`, then `npm run reports` (newest 20; `npm run reports -- 50` for more),
+or open the database in the Vercel dashboard (Storage) and use the Upstash data browser. Sage and Wayfarer post
+cross-origin; the route allows `NEXT_PUBLIC_SAGE_URL` and `NEXT_PUBLIC_WAYFARER_URL`, so keep those set on the vault.
