@@ -38,10 +38,20 @@ Built solo for the Monad Metropolis hackathon, Trust, Identity & AI Infrastructu
 ## Try it
 | | |
 |---|---|
-| Vault | `<vault URL after deployment>` (locally: http://localhost:3100) |
-| Sage (assistant, can propose memories) | `<sage URL>` (locally: http://localhost:3201) |
-| Wayfarer (trip planner, read-only) | `<wayfarer URL>` (locally: http://localhost:3202) |
+| Vault | https://engram-vault.vercel.app (locally: http://localhost:3100) |
+| Sage (assistant, can propose memories) | https://engram-sage.vercel.app (locally: http://localhost:3201) |
+| Wayfarer (trip planner, read-only) | https://engram-wayfarer.vercel.app (locally: http://localhost:3202) |
 | Demo video | `<link>` |
+
+### For judges: access and credentials
+- No account, password or test credential is needed, and none exists to leak. Your vault is created with a passkey
+  on your own device in about 30 seconds (the first **Turn on memory** press). Use any recent Chrome, Safari or
+  Firefox. A phone-based passkey (QR code) also works.
+- Everything runs on Monad testnet (chain 10143) with a relayer that pays gas, so you need no wallet and no funds.
+- Nothing here holds value. Memories you save are encrypted in your browser before they go onchain.
+- To try the MCP side in your own AI tool: `claude mcp add -s user engram -- npx -y engram-vault-mcp` (more tools
+  on the vault landing page), then open the link it prints.
+- If something breaks, use **Report a bug** on any page; reports reach the builder directly.
 
 The demo flow:
 1. Open Sage and chat straight away. Tell it "I'm vegetarian and allergic to peanuts": it marks both "Not saved yet".
@@ -121,7 +131,8 @@ and call `recall`. That takes about 15 minutes. A ~90-line example with no LLM i
 |---|---|
 | MemoryRegistry | [`0x733d1Bf4DC13B721a2Ce3DDCFb444795eFF59d31`](https://testnet.monadvision.com/address/0x733d1Bf4DC13B721a2Ce3DDCFb444795eFF59d31) (block 67062103, Sourcify exact match) |
 | ERC-8004 IdentityRegistry | `0x8004A818BFB912233c491871b3d84c89A494BD9e` |
-| Sage / Wayfarer | ERC-8004 agents #1965 / #1966 |
+| Sage / Wayfarer | ERC-8004 agents #2068 / #2069 on the live deployment (#1965 / #1966 in local dev) |
+| Engram Desktop (MCP) | ERC-8004 agent #2070 |
 
 ## Repository layout
 | Path | What |
