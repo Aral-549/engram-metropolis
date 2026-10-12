@@ -41,6 +41,6 @@ Hands off: indexing to the Envio indexer (contracts/indexer.md); page layout to 
 
 ## Status
 - [x] Drafted
-- [ ] Reviewed by a human
+- [x] Reviewed by a human (approved by the user 2026-10-13)
 - [ ] Implementation matches this contract
 - [ ] Golden tests exist for every behavior case above

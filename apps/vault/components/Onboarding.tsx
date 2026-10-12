@@ -3,6 +3,7 @@
 // Vault landing (contracts/ui.md "Vault landing", U27): try the models, or open your vault. Never contains a chat.
 import { useState } from "react";
 import { ReportBug } from "./ReportBug";
+import { StatsStrip } from "./StatsStrip";
 import { Seal } from "./Seal";
 import { useSession } from "./SessionProvider";
 import { Hero } from "./landing/hero";
@@ -120,6 +121,9 @@ export function Onboarding({ locked = false }: { locked?: boolean }) {
         {/* Additional Interactive Content for Unlocked Mode */}
         {!locked && (
           <>
+            {/* Live onchain usage (contracts/stats.md); hides itself if the indexer is unreachable */}
+            <StatsStrip />
+
             {/* Meet the Agents (Sage & Wayfarer) with 3D Tilt */}
             <div id="agents">
               <AgentCards />
