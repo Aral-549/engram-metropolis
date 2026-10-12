@@ -384,3 +384,271 @@ main,
     opacity: 1;
   }
 }
+
+/* ---------------------------------------------------------------- Glassy & Grainy Reactive Layer (Monad Metropolis) */
+
+/* Frosted glass panel with specular highlight and ink borders */
+.glass-panel {
+  background: rgb(255 255 255 / 0.75);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 3px solid var(--color-ink);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    5px 5px 0 var(--color-ink);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-panel {
+    background: var(--color-card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Specular light sheen that follows cursor across 3D tilting cards */
+.glass-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.glass-sheen::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), rgb(255 255 255 / 0.65), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 5;
+}
+.glass-sheen[data-tilting]::after {
+  opacity: 1;
+}
+
+/* High-frequency procedural film grain */
+.film-grain {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.08  0 0 0 0 0.08  0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.28;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+/* Slow drifting ambient gradient blobs */
+@keyframes ambient-drift {
+  from {
+    translate: 0 0;
+    scale: 1;
+  }
+  to {
+    translate: var(--dx, 8vw) var(--dy, -6vh);
+    scale: var(--s, 1.15);
+  }
+}
+.ambient-blob {
+  animation: ambient-drift var(--drift, 48s) ease-in-out infinite alternate;
+}
+
+/* 3D tilt perspective container */
+.tilt-wrap > * {
+  transition: transform 0.25s ease-out;
+  transform-style: preserve-3d;
+}
+.tilt-wrap > [data-tilting] {
+  transition: transform 0.08s linear;
+}
+
+/* Crystalline circuit lattice hairline divider */
+.lattice-divider path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.lattice-divider.is-in path {
+  animation: lattice-draw 1.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes lattice-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Scroll reveal system */
+.reveal-pending [data-reveal] {
+  opacity: 0;
+  translate: 0 16px;
+}
+.reveal-pending.is-in [data-reveal] {
+  animation: reveal-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+@keyframes reveal-in {
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* Terminal & glass hybrid CTA button */
+.vault-btn {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 3.25rem;
+  padding: 0 1.6rem;
+  border-radius: 14px;
+  border: 3px solid var(--color-ink);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  box-shadow: 5px 5px 0 var(--color-ink);
+  cursor: pointer;
+  overflow: visible;
+  transition: transform var(--t-press) ease, box-shadow var(--t-press) ease, background-color 0.2s ease;
+}
+.vault-btn-primary {
+  background: var(--color-vault);
+  color: var(--color-ink);
+}
+.vault-btn-primary:hover {
+  background: #a28bff;
+}
+.vault-btn-gold {
+  background: var(--color-pop);
+  color: var(--color-ink);
+}
+.vault-btn-gold:hover {
+  background: #ffe066;
+}
+.vault-btn-secondary {
+  background: var(--color-card);
+  color: var(--color-ink);
+}
+.vault-btn-secondary:hover {
+  background: var(--color-pop);
+}
+.vault-btn:active {
+  transform: translate(5px, 5px);
+  box-shadow: 0 0 0 var(--color-ink);
+}
+.vault-btn:disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.vault-btn-sm {
+  min-height: 2.35rem;
+  padding: 0 1rem;
+  font-size: 0.85rem;
+  box-shadow: 3px 3px 0 var(--color-ink);
+}
+.vault-btn-sm:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--color-ink);
+}
+
+/* Sweeping scanline */
+.vault-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.45) 50%, transparent 70%) no-repeat;
+  background-size: 250% 100%;
+  background-position: 150% 0;
+  pointer-events: none;
+  animation: vault-scan 3.8s ease-in-out infinite;
+}
+@keyframes vault-scan {
+  0%, 60% { background-position: 150% 0; }
+  100% { background-position: -50% 0; }
+}
+
+/* Locking corner brackets */
+.vault-brackets {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  pointer-events: none;
+  z-index: 2;
+  --t: 2px;
+  --b: 9px;
+  background:
+    linear-gradient(currentColor, currentColor) top left / var(--b) var(--t) no-repeat,
+    linear-gradient(currentColor, currentColor) top left / var(--t) var(--b) no-repeat,
+    linear-gradient(currentColor, currentColor) top right / var(--b) var(--t) no-repeat,
+    linear-gradient(currentColor, currentColor) top right / var(--t) var(--b) no-repeat,
+    linear-gradient(currentColor, currentColor) bottom left / var(--b) var(--t) no-repeat,
+    linear-gradient(currentColor, currentColor) bottom left / var(--t) var(--b) no-repeat,
+    linear-gradient(currentColor, currentColor) bottom right / var(--b) var(--t) no-repeat,
+    linear-gradient(currentColor, currentColor) bottom right / var(--t) var(--b) no-repeat;
+  color: var(--color-ink);
+  opacity: 0.35;
+  transition: inset 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease, color 0.18s ease;
+}
+.vault-btn:hover .vault-brackets,
+.vault-btn:focus-visible .vault-brackets {
+  inset: -3px;
+  opacity: 1;
+  color: var(--color-vault-ink);
+}
+
+.vault-prompt {
+  font-family: var(--font-mono);
+  font-weight: 900;
+  color: var(--color-ink);
+  opacity: 0.6;
+}
+.vault-caret {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background: var(--color-ink);
+  margin-left: 2px;
+  animation: vault-blink 1.05s steps(1) infinite;
+}
+@keyframes vault-blink {
+  50% { opacity: 0; }
+}
+
+/* Staggered hero rise */
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hero-rise {
+  animation: hero-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Digit / token flicker */
+@keyframes digit-flicker {
+  from {
+    opacity: calc(var(--o) * 0.25);
+  }
+  to {
+    opacity: var(--o);
+  }
+}
+.digit-flicker {
+  animation: digit-flicker 2.4s ease-in-out infinite alternate;
+}
+
+
+/* Wordmark glitch on ripple impact */
+.glitch-target.is-glitching {
+  animation: wordmark-glitch 0.45s ease;
+}
+@keyframes wordmark-glitch {
+  0% { transform: none; }
+  20% { transform: translate(-3px, 2px) skewX(2deg); }
+  40% { transform: translate(3px, -2px) skewX(-2deg); }
+  60% { transform: translate(-2px, -1px); }
+  80% { transform: translate(2px, 1px); }
+  100% { transform: none; }
+}

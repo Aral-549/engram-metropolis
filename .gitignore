@@ -38,3 +38,9 @@ apps/*/next-env.d.ts
 
 # vercel CLI link (local only)
 .vercel/
+.env*
+
+# AI tooling local caches
+.agents/
+.claude/
+skills-lock.json
