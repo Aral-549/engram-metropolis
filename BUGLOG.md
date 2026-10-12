@@ -398,8 +398,8 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Symptom:** two MCP clients started against default settings: the second prints "port 7457 is already in use" and exits; its client reports the connection closed (reproduced with the MCP SDK client over stdio).
 - **Root cause:** M15 is implemented as specified (exit), but running two sessions at once is the normal case for Claude Code users.
 - **Stage/module:** `packages/mcp/src/cli.ts`, `link.ts`; contracts/mcp.md M15
-- **Regression case added:** pending
-- **Status:** open (needs a contract change first)
+- **Regression case added:** `tests/golden/mcp/mcp.multisession.golden.test.ts` -- contract cases 1-7 of contracts/mcp-multi-session.md (case 1, 2, 3, 4/4b, 5, 6, 7) plus edge cases (simultaneous start race, stdout stays MCP-only)
+- **Status:** fixed (contract amendment approved 2026-10-13; `cli.ts` scans 7457..7466 unless ENGRAM_PORT is set; adversarial pass found no implementation bug)
 
 ## 2026-10-08 -- RV-4: agent chat: saves stop flying into the vault after "Clear this chat"
 - **Symptom:** (from the code) `flown` in `apps/agent/app/page.tsx` keeps the old message count after `clearChat`, so in the new conversation no saved pill flies until it is longer than the cleared one (U3). It is also 0 after a reload, so the last reply's pills fly again on refresh.

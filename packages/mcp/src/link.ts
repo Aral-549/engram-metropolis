@@ -45,8 +45,10 @@ export async function startLink(o: {
   const wss = new WebSocketServer({ host: "127.0.0.1", port: o.port, maxPayload: 1024 * 1024 });
   await new Promise<void>((resolve, reject) => {
     wss.once("listening", () => resolve());
-    wss.once("error", (e: NodeJS.ErrnoException) =>
-      reject(e.code === "EADDRINUSE" ? new Error(`port ${o.port} is already in use; set ENGRAM_PORT to another port`) : e));
+    wss.once("error", (e: NodeJS.ErrnoException) => {
+      wss.close();
+      reject(e.code === "EADDRINUSE" ? Object.assign(new Error(`port ${o.port} is already in use; set ENGRAM_PORT to another port`), { code: "EADDRINUSE" }) : e);
+    });
   });
 
   const sameToken = (t: unknown) =>
