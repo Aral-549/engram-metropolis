@@ -66,7 +66,9 @@ export default function Page() {
       /* storage blocked: start disconnected */
     }
     // Restore the conversation and anything waiting to be saved (simple-flow.md C3).
-    setMessages(load<Msg[]>(CHAT_KEY, []).slice(-50));
+    const restored = load<Msg[]>(CHAT_KEY, []).slice(-50);
+    flown.current = restored.length; // restored replies do not fly again (BUGLOG RV-4)
+    setMessages(restored);
     setUnsavedList(load<Unsaved[]>(UNSAVED_KEY, []));
   }, []);
   useEffect(() => {
@@ -113,6 +115,9 @@ export default function Page() {
   }
 
   function clearChat() {
+    // Memories waiting for a vault are lost with the chat: ask first, like closing the tab (BUGLOG RV-6).
+    if (unsavedRef.current.length && !window.confirm("Some memories are not in your vault yet. Clear the chat and drop them?")) return;
+    flown.current = 0; // the next conversation's saved pills fly again (BUGLOG RV-4)
     setMessages([]);
     setUnsavedList([]);
     try {
@@ -265,6 +270,13 @@ export default function Page() {
         setFlag(false);
         setNotice("Connect your memory first.");
         setMessages(messages);
+        // The persist effect skips an empty list, so drop the failed message from the tab's copy here (BUGLOG RV-5).
+        try {
+          messages.length ? store(CHAT_KEY, messages.slice(-50)) : sessionStorage.removeItem(CHAT_KEY);
+        } catch {
+          /* ignore */
+        }
+        setInput((cur) => cur || text); // keep what was typed, unless a newer draft is already there (BUGLOG RV-5)
         return;
       }
       // The server sees no session (never connected, or it expired): show memory as off.
@@ -420,6 +432,7 @@ export default function Page() {
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(input); } }}
             rows={1}
             maxLength={4000}
+            autoFocus // chat first: ready to type on arrival (ui.md U28, BUGLOG RV-7)
             placeholder={`Message ${P.name}`}
             aria-label={`Message ${P.name}`}
             className="paper-card min-h-[52px] flex-1 resize-none px-4 py-3 leading-relaxed outline-none"

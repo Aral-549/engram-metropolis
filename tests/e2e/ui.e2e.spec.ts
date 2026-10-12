@@ -76,6 +76,7 @@ test("U28 Sage: the input is ready with no sign-in, popup or banner in front of 
   const input = page.getByLabel("Message Sage");
   await expect(input).toBeVisible();
   await expect(input).toBeEnabled();
+  await expect(input).toBeFocused(); // BUGLOG RV-7: "ready and focused", not only enabled
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 

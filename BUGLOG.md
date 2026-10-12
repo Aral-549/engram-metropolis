@@ -405,29 +405,29 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Symptom:** (from the code) `flown` in `apps/agent/app/page.tsx` keeps the old message count after `clearChat`, so in the new conversation no saved pill flies until it is longer than the cleared one (U3). It is also 0 after a reload, so the last reply's pills fly again on refresh.
 - **Root cause:** `flown` is never reset with the message list.
 - **Stage/module:** agent app chat page
-- **Regression case added:** pending
-- **Status:** open
+- **Regression case added:** `tests/e2e/chat.e2e.spec.ts` -- RV-4a (flies again after Clear this chat), RV-4b (reload does not re-fly, new reply still flies), RV-4c (restore cut to 50 does not re-fly)
+- **Status:** fixed
 
 ## 2026-10-08 -- RV-5: agent chat: a 401 deletes what the user typed
 - **Symptom:** (from the code) on a 401, `send` restores the old message list after it already cleared the input, so the message is gone from both the input and the chat.
-- **Root cause:** `setMessages(messages)` without `setInput(text)`.
+- **Root cause:** `setMessages(messages)` without `setInput(text)`. Review of the first fix found two more faults: it overwrote a newer draft typed while the request was in flight, and the failed message stayed in sessionStorage (the persist effect skips an empty list), so a reload brought it back. Fixed with `setInput(cur => cur || text)` and rewriting the stored copy on 401.
 - **Stage/module:** agent app chat page (`send`)
-- **Regression case added:** pending
-- **Status:** open
+- **Regression case added:** `tests/e2e/chat.e2e.spec.ts` -- RV-5a (typed text returns untrimmed, failed message not resurrected after reload), RV-5b (newer draft kept), RV-5c (earlier turns kept)
+- **Status:** fixed
 
 ## 2026-10-08 -- RV-6: "Clear this chat" deletes memories waiting for a vault without asking
 - **Symptom:** (from the code) `clearChat` empties the unsaved list too; closing the tab asks first (C40), clearing does not.
 - **Root cause:** `clearChat` calls `setUnsavedList([])` with no confirmation.
 - **Stage/module:** agent app chat page
-- **Regression case added:** pending
-- **Status:** open
+- **Regression case added:** `tests/e2e/chat.e2e.spec.ts` -- RV-6a (declined keeps everything), RV-6b (accepted clears, also after reload), RV-6c (nothing waiting: no dialog)
+- **Status:** fixed
 
 ## 2026-10-08 -- RV-7: U28 says the chat input is focused on first visit; it is not
 - **Symptom:** no `autoFocus` or `.focus()` in the agent app; the U28 e2e test checks only visible and enabled.
-- **Root cause:** implementation and test both miss "focused" from contracts/ui.md U28.
+- **Root cause:** implementation and test both miss "focused" from contracts/ui.md U28. Fixed with `autoFocus` on the textarea.
 - **Stage/module:** agent app chat page, `tests/e2e/ui.e2e.spec.ts`
-- **Regression case added:** pending
-- **Status:** open
+- **Regression case added:** `tests/e2e/chat.e2e.spec.ts` -- RV-7 U28 (input focused on arrival); `tests/e2e/ui.e2e.spec.ts` -- U28 now asserts toBeFocused
+- **Status:** fixed
 
 ## 2026-10-09 -- RV-8: the install command in docs/MCP.md fails outside the repo
 - **Symptom:** `node --import tsx /path/to/engram/packages/mcp/src/cli.ts` run from any other folder exits with `ERR_MODULE_NOT_FOUND` (tsx). MCP clients start the server from the user's project folder, so the documented Claude Code, Claude Desktop and Cursor setups all fail.
