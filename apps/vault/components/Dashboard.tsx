@@ -3,6 +3,8 @@ import type { GrantView, LogView, PolicyView, Proposal, RecalledAnyEntry } from 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { addLabel, discoverLabels, isValidLabel, type DiscoveredNamespace } from "@/lib/discover";
 import { addressUrl, expiresIn, relativeTime, shortAddr, txUrl, untilSettled } from "@/lib/engram";
+import { buildExport, entryCount, exportFilename, exportJson, exportMarkdown } from "@/lib/export";
+import { ImportMemories } from "./ImportMemories";
 import { ReportBug } from "./ReportBug";
 import { Seal } from "./Seal";
 import { Words } from "./Words";
@@ -89,8 +91,11 @@ export function Dashboard() {
 }
 
 function MemoryView() {
-  const { run } = useSession();
+  const { run, session } = useSession();
   const [spaces, setSpaces] = useState<DiscoveredNamespace[] | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportNote, setExportNote] = useState<string | null>(null);
   const [active, setActive] = useState("preferences");
   const [text, setText] = useState("");
   const [kind, setKind] = useState<(typeof KINDS)[number]>("preference");
@@ -127,6 +132,29 @@ function MemoryView() {
     }
   }
 
+  // Decrypted in this browser already; the file is built here and handed to the browser, nothing is sent anywhere.
+  function download(format: "json" | "md") {
+    if (!spaces || !session) return;
+    const doc = buildExport(spaces, session.owner);
+    const body = format === "json" ? exportJson(doc) : exportMarkdown(doc);
+    const url = URL.createObjectURL(new Blob([body], { type: format === "json" ? "application/json" : "text/markdown" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = exportFilename(format);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setExportOpen(false);
+    const incomplete = spaces.some((s) => !s.complete);
+    setExportNote(`Exported ${entryCount(doc)} ${entryCount(doc) === 1 ? "memory" : "memories"}.${incomplete ? " Some recent entries may be missing: they had not reached the indexer yet." : ""}`);
+  }
+
+  const existingTexts = useMemo(
+    () => (spaces ?? []).flatMap((s) => s.entries.filter((e) => e.review !== "rejected").map((e) => e.text)),
+    [spaces],
+  );
+
   async function createFolder(e: React.FormEvent) {
     e.preventDefault();
     const label = newLabel.trim();
@@ -143,6 +171,34 @@ function MemoryView() {
     <div className="max-w-3xl">
       <h2 className="font-display text-4xl tracking-tight md:text-5xl" aria-label="What your AI knows about you"><Words>What your AI knows about you</Words></h2>
       <p className="mt-2 text-ink-soft">Everything here is encrypted before it leaves this device. Apps only see what your vault decides to share with them.</p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button type="button" className="btn btn-ghost px-3 py-1.5 text-sm" aria-expanded={importing} onClick={() => setImporting((v) => !v)}>
+          Import
+        </button>
+        <div className="relative">
+          <button type="button" className="btn btn-ghost px-3 py-1.5 text-sm" aria-haspopup="menu" aria-expanded={exportOpen} disabled={spaces === null}
+            title={spaces === null ? "Loading your memory" : undefined} onClick={() => setExportOpen((v) => !v)}>
+            Export
+          </button>
+          {exportOpen ? (
+            <div role="menu" className="paper-card absolute left-0 top-full z-10 mt-2 flex w-44 flex-col gap-1 p-2">
+              <button role="menuitem" type="button" className="btn btn-ghost justify-start px-3 py-1.5 text-sm" onClick={() => download("json")}>JSON file</button>
+              <button role="menuitem" type="button" className="btn btn-ghost justify-start px-3 py-1.5 text-sm" onClick={() => download("md")}>Markdown file</button>
+            </div>
+          ) : null}
+        </div>
+        <span role="status" aria-live="polite" className="font-mono text-xs text-ink-soft">{exportNote}</span>
+      </div>
+      {importing ? (
+        <ImportMemories
+          topics={[...new Set(["preferences", ...(spaces ?? []).map((s) => s.label)])]}
+          initialTopic={active}
+          existing={existingTexts}
+          onClose={() => setImporting(false)}
+          onSaved={() => void load()}
+        />
+      ) : null}
 
       <div className="mt-8 flex flex-wrap items-end gap-1 border-b border-rule">
         {tabs.map((label) => (
