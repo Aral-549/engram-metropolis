@@ -9,6 +9,7 @@ import { flushWithRetry } from "@/lib/flush";
 import { BRIDGE_TIMEOUT_MS, STUCK_NOTICE, turnGuard, type TurnGuard } from "@/lib/vault-turn";
 import { ReplyText } from "@/components/ReplyText";
 import { ReportBug } from "@/components/ReportBug";
+import { AgentAmbient } from "@/components/AgentAmbient";
 
 type Unsaved = { kind: "fact" | "preference" | "note"; text: string };
 type Msg = { role: "user" | "assistant"; content: string; saved?: { text: string; txHash?: string }[]; unsaved?: string[]; used?: string[] };
@@ -301,28 +302,54 @@ export default function Page() {
   const lastSaved = messages.reduce((n, m, i) => (m.saved?.length ? i : n), -1);
 
   return (
-    <main className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-20 border-b-[3px] border-ink" style={{ background: "var(--agent)" }}>
+    <main className="relative flex min-h-dvh flex-col overflow-x-hidden">
+      {/* Dynamic ambient grainy gradients + interactive liquid ripples */}
+      <AgentAmbient personaId={P.id} />
+
+      <header
+        className="sticky top-0 z-20 border-b-[3px] border-ink backdrop-blur-xl shadow-xs"
+        style={{
+          background: "color-mix(in oklab, var(--agent) 82%, white 18%)",
+        }}
+      >
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 md:px-6">
-          <Monogram letter={P.name[0]!} plain />
+          <div className="drop-shadow-[3px_3px_0_var(--color-ink)]">
+            <Monogram letter={P.name[0]!} plain />
+          </div>
           <div className="min-w-0">
-            <h1 className="font-display text-3xl leading-none md:text-4xl">{P.name}</h1>
-            <p className="hidden truncate text-sm font-semibold sm:block">{P.tagline}</p>
+            <h1 className="font-display text-3xl leading-none tracking-tight md:text-4xl text-ink">
+              {P.name}
+            </h1>
+            <p className="hidden truncate text-sm font-semibold text-ink-soft sm:block">
+              {P.tagline}
+            </p>
           </div>
           <div className="ml-auto w-[min(320px,56vw)]">
             {memoryOn ? (
               <>
                 <div ref={bridgeMount} aria-label="Your Engram vault" />
                 {/* Always a way to approve again with the vault you have now (FL-3). */}
-                <button onClick={() => void connect()} className="mt-0.5 block min-h-6 w-full text-right text-xs font-bold underline underline-offset-2">
+                <button
+                  onClick={() => void connect()}
+                  className="mt-0.5 block min-h-6 w-full text-right text-xs font-bold underline underline-offset-2 text-ink hover:text-ink-soft cursor-pointer"
+                >
                   Reconnect
                 </button>
               </>
             ) : (
-              <button onClick={() => void connect()} className="btn btn-primary w-full justify-center px-3" aria-label={`Turn on memory${unsaved.length ? ` (${unsaved.length} waiting)` : ""}`}>
+              <button
+                onClick={() => void connect()}
+                className="btn btn-primary w-full justify-center px-3"
+                aria-label={`Turn on memory${unsaved.length ? ` (${unsaved.length} waiting)` : ""}`}
+              >
                 <span className="whitespace-nowrap">Turn on memory</span>
                 {unsaved.length ? (
-                  <span aria-hidden className="grid h-6 min-w-6 place-items-center rounded-full border-2 border-ink bg-pop px-1 text-xs">{unsaved.length}</span>
+                  <span
+                    aria-hidden
+                    className="grid h-6 min-w-6 place-items-center rounded-full border-2 border-ink bg-pop px-1 text-xs"
+                  >
+                    {unsaved.length}
+                  </span>
                 ) : null}
               </button>
             )}
@@ -332,7 +359,7 @@ export default function Page() {
 
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 pb-4 pt-6 md:px-6">
         {revoked ? (
-          <div className="settle mb-4 flex flex-wrap items-center gap-3 rounded-[14px] border-[3px] border-ink bg-danger-soft px-4 py-2.5 text-sm">
+          <div className="settle mb-4 flex flex-wrap items-center gap-3 rounded-[14px] border-[3px] border-ink bg-danger-soft px-4 py-2.5 text-sm shadow-[4px_4px_0_var(--color-ink)]">
             <span>You revoked my access, so I&apos;ll ask what I need.</span>
             <button className="btn btn-primary text-xs px-2.5" onClick={() => void connect()}>Turn memory back on</button>
           </div>
@@ -341,12 +368,17 @@ export default function Page() {
         <div className="flex-1 space-y-6 pb-6">
           {messages.length === 0 ? (
             <div className="pt-4 md:pt-12">
-              <p className="max-w-2xl font-display text-[clamp(2rem,5vw,3.4rem)] leading-[1.02]">
+              <p className="max-w-2xl font-display text-[clamp(2rem,5vw,3.4rem)] leading-[1.02] tracking-tight text-ink drop-shadow-xs">
                 <Words>{P.greeting}</Words>
               </p>
               <div className="stagger mt-8 flex flex-wrap gap-3">
                 {P.suggestions.map((s, i) => (
-                  <button key={s} onClick={() => void send(s)} style={{ ["--i" as string]: i, ["--d" as string]: "500ms" }} className="btn px-3.5 text-left text-sm">
+                  <button
+                    key={s}
+                    onClick={() => void send(s)}
+                    style={{ ["--i" as string]: i, ["--d" as string]: "500ms" }}
+                    className="btn glass-panel glass-sheen lift px-3.5 text-left text-sm font-semibold"
+                  >
                     {s}
                   </button>
                 ))}
@@ -356,43 +388,47 @@ export default function Page() {
           {messages.map((m, i) =>
             m.role === "user" ? (
               <div key={i} className="settle ml-auto max-w-[85%] text-right">
-                <div className="inline-block whitespace-pre-wrap rounded-[14px] bg-ink px-4 py-2.5 text-left font-medium leading-relaxed text-white">{m.content}</div>
+                <div className="inline-block whitespace-pre-wrap rounded-[16px] border-[3px] border-ink bg-ink px-4 py-2.5 text-left font-medium leading-relaxed text-white shadow-[4px_4px_0_var(--color-ink)]">
+                  {m.content}
+                </div>
               </div>
             ) : (
               <div key={i} className="settle flex max-w-[92%] gap-3">
-                <Monogram letter={P.name[0]!} size={34} />
+                <div className="drop-shadow-[2px_2px_0_var(--color-ink)]">
+                  <Monogram letter={P.name[0]!} size={34} />
+                </div>
                 <div className="min-w-0 flex-1">
                   {m.used?.length ? (
                     <div className="mb-2 flex flex-wrap gap-2" aria-label="Used from your vault">
                       {m.used.map((t, k) => (
-                        <span key={`${t}-${k}`} className="pill pill-used" aria-label={`Used from your vault: ${t}`}>
+                        <span key={`${t}-${k}`} className="pill pill-used shadow-[2px_2px_0_var(--color-ink)]" aria-label={`Used from your vault: ${t}`}>
                           <span className="t">Used: {t}</span>
                         </span>
                       ))}
                     </div>
                   ) : null}
                   {m.content ? (
-                    <div className="paper-card px-4 py-3">
+                    <div className="paper-card glass-panel glass-sheen px-4 py-3">
                       <ReplyText text={m.content} />
                     </div>
                   ) : null}
                   {m.saved?.length || m.unsaved?.length ? (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       {(m.saved ?? []).map((s, k) => (
-                        <span key={`${s.text}-${k}`} data-fly={i} className="pill pill-saved" aria-label={`Saved to your memory: ${s.text}`}>
+                        <span key={`${s.text}-${k}`} data-fly={i} className="pill pill-saved shadow-[2px_2px_0_var(--color-ink)]" aria-label={`Saved to your memory: ${s.text}`}>
                           <span className="t">Saved: {s.text}</span>
                         </span>
                       ))}
                       {(m.unsaved ?? []).map((t, k) => {
                         const waiting = unsaved.some((u) => u.text === t);
                         return (
-                          <span key={`${t}-${k}`} className={`pill ${waiting ? "pill-waiting" : "pill-saved"}`} aria-label={`${waiting ? "Not saved yet" : "Saved to your memory"}: ${t}`}>
+                          <span key={`${t}-${k}`} className={`pill ${waiting ? "pill-waiting" : "pill-saved"} shadow-[2px_2px_0_var(--color-ink)]`} aria-label={`${waiting ? "Not saved yet" : "Saved to your memory"}: ${t}`}>
                             <span className="t">{waiting ? (connected ? "Saving…" : "Not saved yet") : "Saved"}: {t}</span>
                           </span>
                         );
                       })}
                       {i === lastSaved && PEER_URL && canWrite ? (
-                        <a href={PEER_URL} target="_blank" rel="noreferrer" className="ml-1 text-sm font-bold underline underline-offset-4">
+                        <a href={PEER_URL} target="_blank" rel="noreferrer" className="ml-1 text-sm font-bold underline underline-offset-4 text-ink hover:text-ink-soft">
                           See it in {PEER.name} →
                         </a>
                       ) : null}
@@ -413,7 +449,7 @@ export default function Page() {
         </div>
 
         {unsaved.length ? (
-          <div role="status" className="settle mb-3 flex flex-wrap items-center gap-3 rounded-[14px] border-[3px] border-dashed border-ink bg-card px-4 py-2.5 text-sm">
+          <div role="status" className="settle mb-3 flex flex-wrap items-center gap-3 rounded-[14px] border-[3px] border-dashed border-ink glass-panel px-4 py-2.5 text-sm">
             <span>
               {unsaved.length === 1 ? "1 memory isn't" : `${unsaved.length} memories aren't`} saved yet. Closing this tab deletes {unsaved.length === 1 ? "it" : "them"}.
             </span>
@@ -423,7 +459,7 @@ export default function Page() {
           </div>
         ) : null}
         {notice ? (
-          <p role="alert" className="settle mb-3 rounded-[14px] border-[3px] border-ink bg-danger-soft px-4 py-2.5 text-sm">{notice}</p>
+          <p role="alert" className="settle mb-3 rounded-[14px] border-[3px] border-ink bg-danger-soft px-4 py-2.5 text-sm shadow-[3px_3px_0_var(--color-ink)]">{notice}</p>
         ) : null}
         <form onSubmit={(e) => { e.preventDefault(); void send(input); }} className="sticky bottom-4 flex items-end gap-3">
           <textarea
@@ -435,13 +471,13 @@ export default function Page() {
             autoFocus // chat first: ready to type on arrival (ui.md U28, BUGLOG RV-7)
             placeholder={`Message ${P.name}`}
             aria-label={`Message ${P.name}`}
-            className="paper-card min-h-[52px] flex-1 resize-none px-4 py-3 leading-relaxed outline-none"
+            className="paper-card glass-panel min-h-[52px] flex-1 resize-none px-4 py-3 leading-relaxed outline-none"
           />
           <button className="btn btn-primary px-5" disabled={busy || !input.trim()}>Send</button>
         </form>
         <div className="mt-4 text-center text-xs font-medium text-ink-soft">
           Runs on KIMI. {P.name} sees only what your vault shares.
-          {messages.length ? <> · <button className="underline" onClick={clearChat}>Clear this chat</button></> : null}
+          {messages.length ? <> · <button className="underline cursor-pointer" onClick={clearChat}>Clear this chat</button></> : null}
           {" · "}
           <ReportBug app={P.id === "planner" ? "wayfarer" : "sage"} endpoint={`${VAULT}/api/report`} />
         </div>
