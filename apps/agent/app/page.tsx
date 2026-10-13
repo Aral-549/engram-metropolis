@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { persona } from "@/lib/personas";
 import { Monogram } from "@/components/Monogram";
 import { Words } from "@/components/Words";
-import { flushWithRetry } from "@/lib/flush";
+import { flushWithRetry, runOnReadyOrTimeout } from "@/lib/flush";
 import { BRIDGE_TIMEOUT_MS, STUCK_NOTICE, turnGuard, type TurnGuard } from "@/lib/vault-turn";
 import { ReplyText } from "@/components/ReplyText";
 import { ReportBug } from "@/components/ReportBug";
@@ -230,8 +230,9 @@ export default function Page() {
       if (!res.ok) throw new Error("session");
       setFlag(true);
       setRevoked(false);
-      // The bridge mounts after this render; give it a moment, then save what was waiting.
-      setTimeout(() => void flushUnsaved(), 1500);
+      // Save what was waiting as soon as the strip reports "ready" (the popup unlocked it); the old 1.5 s wait stays as
+      // the fallback, and flushUnsaved still retries after 2, 3, 5, 8 and 13 s (C5b).
+      runOnReadyOrTimeout({ strip: bridge.current, timeoutMs: 1500, run: () => void flushUnsaved() });
     } catch (e) {
       const code = (e as { code?: string }).code;
       setNotice(code === "USER_CANCELLED" ? "Connection cancelled. Nothing was shared." : code === "POPUP_BLOCKED" ? "Allow pop-ups for this site, then try again." : "Could not connect your memory. Try again.");

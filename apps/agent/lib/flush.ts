@@ -26,3 +26,38 @@ export async function flushWithRetry<T>(o: {
     await sleep(FLUSH_DELAYS_MS[attempt]!);
   }
 }
+
+/**
+ * Runs `run` once: as soon as the strip reports "ready", or after `timeoutMs` if it never does (C5, C5b). Handles a
+ * strip that is already ready, and a missing strip (timer only). Returns a cancel function that clears the timer and the
+ * subscription without running.
+ */
+export function runOnReadyOrTimeout<S extends string>(o: {
+  strip: { status(): S; onStatus(cb: (s: S) => void): () => void } | null | undefined;
+  timeoutMs: number;
+  run: () => void;
+}): () => void {
+  let sent = false;
+  let stop = () => {};
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cancel = () => {
+    sent = true;
+    stop();
+    stop = () => {};
+    if (timer !== undefined) clearTimeout(timer);
+  };
+  const go = () => {
+    if (sent) return;
+    cancel();
+    o.run();
+  };
+  timer = setTimeout(go, o.timeoutMs);
+  if (o.strip?.status() === "ready") go();
+  else if (o.strip) {
+    stop = o.strip.onStatus((st) => {
+      if (st === "ready") go();
+    });
+    if (sent) stop(); // the callback ran synchronously while subscribing
+  }
+  return cancel;
+}

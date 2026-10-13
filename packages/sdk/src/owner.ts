@@ -859,14 +859,22 @@ export class OwnerSession {
       if (!this.hit(this.#discloseHits, req.agentId.toString(), DISCLOSE_LIMIT)) fail("RATE_LIMITED", "too many reads by this agent; try again in a few minutes");
       const me = req.agentId.toString();
       const candidates: Candidate[] = [];
-      const reviews = await this.loadReviews();
       let lagBudget = 6; // the indexer can trail the chain by ~1 s: re-read briefly, once per call (D29)
-      for (const label of policy.labels) {
-        let read = await this.readDocs(label);
-        while (read.missingSeqs.length && lagBudget-- > 0) {
-          await new Promise((r) => setTimeout(r, 500));
-          read = await this.readDocs(label);
-        }
+      // The review records and every approved folder are independent reads: fetch them together, then walk the
+      // folders in policy order exactly as before.
+      const [reviews, reads] = await Promise.all([
+        this.loadReviews(),
+        Promise.all(policy.labels.map(async (label) => {
+          let read = await this.readDocs(label);
+          while (read.missingSeqs.length && lagBudget-- > 0) {
+            await new Promise((r) => setTimeout(r, 500));
+            read = await this.readDocs(label);
+          }
+          return read;
+        })),
+      ]);
+      for (const [i, label] of policy.labels.entries()) {
+        const read = reads[i]!;
         for (const d of read.docs) {
           const w = writerOf(d);
           if (!w) continue;
