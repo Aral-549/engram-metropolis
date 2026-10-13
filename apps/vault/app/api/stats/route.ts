@@ -1,5 +1,5 @@
 // GET /api/stats -- public usage counts from the indexer (contracts/stats.md). Counts only; no addresses, no auth.
-import { parseStats, STATS_QUERY, utcDay, type Stats } from "@/lib/stats";
+import { LAUNCH_AT, parseStats, STATS_QUERY, type Stats } from "@/lib/stats";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +49,7 @@ async function query(url: string): Promise<{ stats: Stats; at: number } | { reas
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ query: STATS_QUERY, variables: { day: utcDay(new Date()) } }),
+      body: JSON.stringify({ query: STATS_QUERY, variables: { t: LAUNCH_AT } }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: "no-store",
     });

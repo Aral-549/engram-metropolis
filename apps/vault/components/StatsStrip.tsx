@@ -3,7 +3,7 @@
 // stays hidden (never an error, never a fake number). Height is reserved so the page does not jump.
 import { useEffect, useState } from "react";
 
-type Data = { vaults: number; memories: number; agents: number; activeToday: number };
+type Data = { vaults: number; memories: number; peakDay: number };
 
 const isCount = (n: unknown): n is number => typeof n === "number" && Number.isSafeInteger(n) && n >= 0;
 
@@ -18,8 +18,8 @@ export function StatsStrip() {
     fetch("/api/stats", { signal: ctl.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (j && j.ok === true && isCount(j.vaults) && isCount(j.memories) && isCount(j.agents) && isCount(j.activeToday)) {
-          setData({ vaults: j.vaults, memories: j.memories, agents: j.agents, activeToday: j.activeToday });
+        if (j && j.ok === true && isCount(j.vaults) && isCount(j.memories) && isCount(j.peakDay)) {
+          setData({ vaults: j.vaults, memories: j.memories, peakDay: j.peakDay });
         } else setFailed(true);
       })
       .catch((e) => {
@@ -32,8 +32,7 @@ export function StatsStrip() {
     ? [
         ["vaults", data.vaults],
         ["memories saved", data.memories],
-        ["agents connected", data.agents],
-        ["active today", data.activeToday],
+        ["most vaults active in a day", data.peakDay],
       ]
     : [];
 
@@ -49,7 +48,7 @@ export function StatsStrip() {
               </div>
             ))}
           </dl>
-          <p className="mt-2 text-sm text-ink-soft">from Monad testnet</p>
+          <p className="mt-2 text-sm text-ink-soft">since launch, from Monad testnet</p>
         </div>
       )}
     </section>
