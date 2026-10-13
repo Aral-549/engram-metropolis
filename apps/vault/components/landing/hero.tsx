@@ -72,7 +72,7 @@ export function Hero({
           type="button"
           aria-pressed={sound}
           onClick={() => setGlassSound(!sound)}
-          className="pressable absolute top-4 right-4 z-20 flex items-center gap-1.5 rounded-xl border-2 border-ink bg-card/85 px-3 py-1.5 font-mono text-xs font-bold text-ink shadow-[3px_3px_0_#141414] backdrop-blur-md transition-colors hover:bg-pop"
+          className="pressable absolute top-3 right-3 z-20 flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border-2 border-ink bg-card/85 px-3 py-1.5 font-mono text-xs font-bold text-ink shadow-[3px_3px_0_#141414] backdrop-blur-md transition-colors hover:bg-pop"
         >
           <svg
             width="14"
@@ -103,10 +103,10 @@ export function Hero({
         </button>
       )}
 
-      <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 pt-6 pb-12 text-center sm:px-8 sm:pt-10 sm:pb-16">
+      <div className="relative mx-auto flex max-w-4xl flex-col items-center px-4 pt-16 pb-12 text-center sm:px-8 sm:pt-10 sm:pb-16">
         {/* Monad Live Status Pill */}
         <div
-          className="hero-rise mb-3 flex items-center gap-2 rounded-full border-2 border-ink bg-pop px-3.5 py-1 font-mono text-xs font-bold text-ink shadow-[2px_2px_0_#141414]"
+          className="hero-rise mb-3 flex items-center gap-2 rounded-2xl border-2 border-ink bg-pop px-3.5 py-1 font-mono text-xs font-bold text-ink shadow-[2px_2px_0_#141414]"
           style={{ animationDelay: "0.05s" }}
         >
           <span className="live-dot" />

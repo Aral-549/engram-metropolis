@@ -81,7 +81,7 @@ export function ArchitectureSpec() {
               }`}
             >
               <span className="font-display text-sm font-bold text-ink">{s.feature}</span>
-              <span className="font-mono text-xs text-danger-ink line-through decoration-danger decoration-2 opacity-80">
+              <span className="font-mono text-xs text-danger-ink line-through decoration-danger decoration-2">
                 {s.traditional}
               </span>
               <span className="flex items-center gap-1.5 font-mono text-xs font-bold text-ink">

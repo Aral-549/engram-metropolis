@@ -60,7 +60,7 @@ function CopyCode({ code, label }: { code: string; label: string }) {
       <button
         type="button"
         onClick={() => void copy()}
-        className="btn shrink-0 px-3 text-sm"
+        className="btn shrink-0 px-3 text-sm min-h-11!"
         aria-label={copied ? "Copied" : `Copy ${label}`}
       >
         {copied ? "Copied" : "Copy"}
@@ -122,7 +122,7 @@ export function Onboarding({ locked = false }: { locked?: boolean }) {
         {!locked && (
           <>
             {/* Live onchain usage (contracts/stats.md); hides itself if the indexer is unreachable */}
-            <StatsStrip />
+            <div className="mt-6"><StatsStrip /></div>
 
             {/* Meet the Agents (Sage & Wayfarer) with 3D Tilt */}
             <div id="agents">
@@ -248,7 +248,7 @@ export function Onboarding({ locked = false }: { locked?: boolean }) {
                         </p>
                         <CopyCode code={MCP_CLAUDE_CODE} label="the Claude Code command" />
                         <details className="mt-3">
-                          <summary className="inline-flex min-h-6 cursor-pointer items-center text-sm font-bold text-vault-ink underline underline-offset-4">
+                          <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-bold text-vault-ink underline underline-offset-4">
                             Other tools
                           </summary>
                           <p className="mt-3 text-sm font-bold text-ink">Codex</p>
@@ -309,12 +309,12 @@ export function Onboarding({ locked = false }: { locked?: boolean }) {
                 <Seal size={20} />
                 <span>Built on Monad Metropolis · ERC-8004 · Mera Passkeys · Envio HyperIndex</span>
               </div>
-              <ReportBug app="vault" />
+              <ReportBug app="vault" className="min-h-11! self-start" />
               <a
                 href={`https://testnet.monadvision.com/address/${REGISTRY}`}
                 target="_blank"
                 rel="noreferrer"
-                className="font-mono font-bold text-ink underline underline-offset-4 min-h-[24px] inline-flex items-center hover:text-vault-ink"
+                className="font-mono font-bold text-ink underline underline-offset-4 min-h-11 inline-flex items-center hover:text-vault-ink"
               >
                 MemoryRegistry {REGISTRY.slice(0, 6)}…{REGISTRY.slice(-4)}
               </a>

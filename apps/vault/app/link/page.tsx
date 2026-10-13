@@ -216,7 +216,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <header className="mb-8 flex items-center gap-2">
         <Seal size={22} />
         <span className="font-display text-xl">Engram</span>
-        <ReportBug app="vault" className="ml-auto" />
+        <ReportBug app="vault" className="ml-auto min-h-11!" />
       </header>
       {children}
     </main>

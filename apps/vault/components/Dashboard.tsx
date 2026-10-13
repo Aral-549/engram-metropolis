@@ -44,12 +44,12 @@ export function Dashboard() {
         </div>
         <div>
           <p className="font-mono text-[11px] uppercase tracking-wider text-ink-soft">Your vault</p>
-          <a href={addressUrl(session.owner)} target="_blank" rel="noreferrer" className="mt-1 block font-mono text-sm underline decoration-rule underline-offset-4 hover:decoration-seal">
+          <a href={addressUrl(session.owner)} target="_blank" rel="noreferrer" className="mt-1 flex min-h-11 items-center font-mono text-sm underline decoration-rule underline-offset-4 hover:decoration-seal">
             {shortAddr(session.owner)}
           </a>
           <p className="mt-1 text-xs text-ink-soft">Monad testnet. Unlocked with your passkey.</p>
         </div>
-        <nav className="flex gap-2 md:flex-col">
+        <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:flex md:flex-col">
           {(["memory", "review", "access", "reads"] as Tab[]).map((t) => (
             <button key={t} onClick={() => setTab(t)} className={`btn px-3 py-2 text-left ${tab === t ? "bg-card border border-rule" : "border border-transparent hover:bg-card"}`}>
               {t === "memory" ? "Memory" : t === "review" ? "Review" : t === "access" ? "Who can read it" : "Reads"}
@@ -65,7 +65,7 @@ export function Dashboard() {
           <button className="btn btn-ghost justify-center px-3 py-2 text-sm" onClick={lock}>
             Lock vault
           </button>
-          <ReportBug app="vault" className="self-start" />
+          <ReportBug app="vault" className="min-h-11! self-start" />
         </div>
       </aside>
       <section className="px-6 py-8 md:px-12 md:py-12">
@@ -74,7 +74,7 @@ export function Dashboard() {
             <p className="font-medium">Indexer not configured (NEXT_PUBLIC_INDEXER_URL)</p>
             <p className="mt-1 text-xs text-amber-800">
               Your vault saves transactions directly on Monad testnet, but reading memories back requires an indexer.
-              Host the indexer from <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">indexer/</code> on Envio Cloud (<a href="https://envio.dev/app" target="_blank" rel="noreferrer" className="underline font-medium">envio.dev/app</a>) and set <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">NEXT_PUBLIC_INDEXER_URL</code> in Vercel.
+              Host the indexer from <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">indexer/</code> on Envio Cloud (<a href="https://envio.dev/app" target="_blank" rel="noreferrer" className="inline-block min-h-6 underline font-medium">envio.dev/app</a>) and set <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">NEXT_PUBLIC_INDEXER_URL</code> in Vercel.
             </p>
           </div>
         ) : null}
@@ -173,18 +173,18 @@ function MemoryView() {
       <p className="mt-2 text-ink-soft">Everything here is encrypted before it leaves this device. Apps only see what your vault decides to share with them.</p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" className="btn btn-ghost px-3 py-1.5 text-sm" aria-expanded={importing} onClick={() => setImporting((v) => !v)}>
+        <button type="button" className="btn btn-ghost min-h-11! px-3 py-1.5 text-sm" aria-expanded={importing} onClick={() => setImporting((v) => !v)}>
           Import
         </button>
         <div className="relative">
-          <button type="button" className="btn btn-ghost px-3 py-1.5 text-sm" aria-haspopup="menu" aria-expanded={exportOpen} disabled={spaces === null}
+          <button type="button" className="btn btn-ghost min-h-11! px-3 py-1.5 text-sm" aria-haspopup="menu" aria-expanded={exportOpen} disabled={spaces === null}
             title={spaces === null ? "Loading your memory" : undefined} onClick={() => setExportOpen((v) => !v)}>
             Export
           </button>
           {exportOpen ? (
             <div role="menu" className="paper-card absolute left-0 top-full z-10 mt-2 flex w-44 flex-col gap-1 p-2">
-              <button role="menuitem" type="button" className="btn btn-ghost justify-start px-3 py-1.5 text-sm" onClick={() => download("json")}>JSON file</button>
-              <button role="menuitem" type="button" className="btn btn-ghost justify-start px-3 py-1.5 text-sm" onClick={() => download("md")}>Markdown file</button>
+              <button role="menuitem" type="button" className="btn btn-ghost min-h-11! justify-start px-3 py-1.5 text-sm" onClick={() => download("json")}>JSON file</button>
+              <button role="menuitem" type="button" className="btn btn-ghost min-h-11! justify-start px-3 py-1.5 text-sm" onClick={() => download("md")}>Markdown file</button>
             </div>
           ) : null}
         </div>
@@ -202,7 +202,7 @@ function MemoryView() {
 
       <div className="mt-8 flex flex-wrap items-end gap-1 border-b border-rule">
         {tabs.map((label) => (
-          <button key={label} data-active={label === active} onClick={() => setActive(label)} className="folder-tab px-4 py-2 font-mono text-sm">
+          <button key={label} data-active={label === active} onClick={() => setActive(label)} className="folder-tab min-h-11 px-4 py-2 font-mono text-sm">
             {label}
             <span className="ml-2 text-ink-soft">{spaces?.find((s) => s.label === label)?.entries.length ?? 0}</span>
           </button>
@@ -213,9 +213,9 @@ function MemoryView() {
             onChange={(e) => setNewLabel(e.target.value.toLowerCase())}
             placeholder="new topic"
             aria-label="New topic name"
-            className="w-32 rounded-sm border border-rule bg-card px-2 py-1 font-mono text-sm"
+            className="min-h-11 w-32 rounded-sm border border-rule bg-card px-2 py-1 font-mono text-sm"
           />
-          <button className="btn btn-ghost px-2 py-1 text-sm" disabled={!isValidLabel(newLabel)}>Add</button>
+          <button className="btn btn-ghost min-h-11! px-3 py-1 text-sm" disabled={!isValidLabel(newLabel)}>Add</button>
         </form>
       </div>
 
@@ -234,7 +234,7 @@ function MemoryView() {
           <div className="flex gap-1" role="radiogroup" aria-label="Kind">
             {KINDS.map((k) => (
               <button type="button" role="radio" aria-checked={kind === k} key={k} onClick={() => setKind(k)}
-                className={`rounded-sm border px-2.5 py-1 font-mono text-xs ${kind === k ? "border-seal bg-seal-soft text-seal" : "border-rule text-ink-soft"}`}>
+                className={`min-h-11 rounded-sm border px-3 py-1 font-mono text-xs ${kind === k ? "border-seal bg-seal-soft text-seal" : "border-rule text-ink-soft"}`}>
                 {k}
               </button>
             ))}
@@ -581,14 +581,14 @@ function ReviewView({ onCount }: { onCount: (n: number) => void }) {
                         <button className="btn btn-primary px-3 py-1.5 text-sm" disabled={busy !== null || !draft.trim()} onClick={() => void act(p, "confirm", draft)}>
                           Save and confirm
                         </button>
-                        <button className="btn btn-ghost px-3 py-1.5 text-sm" onClick={() => setEditing(null)}>Cancel</button>
+                        <button className="btn btn-ghost min-h-11! px-3 py-1.5 text-sm" onClick={() => setEditing(null)}>Cancel</button>
                       </>
                     ) : (
                       <>
                         <button className="btn btn-primary px-3 py-1.5 text-sm" disabled={busy !== null} onClick={() => void act(p, "confirm")}>
                           {busy === key(p) ? "Sealing…" : "Confirm"}
                         </button>
-                        <button className="btn btn-ghost px-3 py-1.5 text-sm" disabled={busy !== null} onClick={() => { setEditing(key(p)); setDraft(p.text); }}>
+                        <button className="btn btn-ghost min-h-11! px-3 py-1.5 text-sm" disabled={busy !== null} onClick={() => { setEditing(key(p)); setDraft(p.text); }}>
                           Edit
                         </button>
                         <button className="btn btn-danger px-3 py-1.5 text-sm" disabled={busy !== null} onClick={() => void act(p, "reject")}>

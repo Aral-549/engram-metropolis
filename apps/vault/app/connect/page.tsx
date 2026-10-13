@@ -223,7 +223,7 @@ function Consent() {
             {!session ? (
               <p className="text-center text-xs font-medium text-ink-soft">Already made one? Use Unlock and approve. A second vault starts empty.</p>
             ) : null}
-            <button className="mt-1 self-center px-4 py-2.5 text-sm font-bold underline underline-offset-4" onClick={deny} disabled={phase === "granting"}>
+            <button className="mt-1 min-h-11 self-center px-4 py-2.5 text-sm font-bold underline underline-offset-4" onClick={deny} disabled={phase === "granting"}>
               Deny
             </button>
           </div>
@@ -250,7 +250,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <header className="mb-8 flex items-center gap-2">
         <Seal size={22} />
         <span className="font-display text-xl">Engram</span>
-        <ReportBug app="vault" className="ml-auto" />
+        <ReportBug app="vault" className="ml-auto min-h-11!" />
       </header>
       {children}
     </main>

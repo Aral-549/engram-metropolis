@@ -106,7 +106,7 @@ export function ImportMemories({ topics, initialTopic, existing, onClose, onSave
             Paste notes, a ChatGPT or Claude memory list, or an Engram export. Nothing leaves this device until you press Save.
           </p>
         </div>
-        <button type="button" className="btn btn-ghost px-3 py-1.5 text-sm" disabled={saving !== null} onClick={onClose}>Close</button>
+        <button type="button" className="btn btn-ghost min-h-11! px-3 py-1.5 text-sm" disabled={saving !== null} onClick={onClose}>Close</button>
       </div>
 
       <label htmlFor="import-text" className="mt-4 block font-mono text-[11px] uppercase tracking-wider text-ink-soft">Text to import</label>
@@ -121,7 +121,7 @@ export function ImportMemories({ topics, initialTopic, existing, onClose, onSave
       />
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <input ref={fileRef} type="file" accept=".txt,.md,.json,text/plain,text/markdown,application/json" onChange={(e) => void pick(e)} className="sr-only" id="import-file" />
-        <label htmlFor="import-file" className="btn btn-ghost cursor-pointer px-3 py-1.5 text-sm">Upload .txt, .md or .json</label>
+        <label htmlFor="import-file" className="btn btn-ghost min-h-11! cursor-pointer px-3 py-1.5 text-sm">Upload .txt, .md or .json</label>
         <span className="font-mono text-xs text-ink-soft">up to 200 KB</span>
       </div>
       {fileError ? <p role="alert" className="mt-2 text-sm text-danger-ink">{fileError}</p> : null}
@@ -130,7 +130,7 @@ export function ImportMemories({ topics, initialTopic, existing, onClose, onSave
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
         <label className="flex items-center gap-2 text-sm">
           <span className="font-mono text-[11px] uppercase tracking-wider text-ink-soft">Topic</span>
-          <select value={topic} disabled={saving !== null} onChange={(e) => setTopic(e.target.value)} className="rounded-sm border border-rule bg-card px-2 py-1 font-mono text-sm">
+          <select value={topic} disabled={saving !== null} onChange={(e) => setTopic(e.target.value)} className="min-h-11 rounded-sm border border-rule bg-card px-2 py-1 font-mono text-sm">
             {topics.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </label>
@@ -139,7 +139,7 @@ export function ImportMemories({ topics, initialTopic, existing, onClose, onSave
           <div className="flex gap-1" role="radiogroup" aria-label="Kind for imported memories">
             {IMPORT_KINDS.map((k) => (
               <button type="button" role="radio" aria-checked={kind === k} key={k} disabled={saving !== null} onClick={() => setKind(k)}
-                className={`rounded-sm border px-2.5 py-1 font-mono text-xs ${kind === k ? "border-seal bg-seal-soft text-seal" : "border-rule text-ink-soft"}`}>
+                className={`min-h-11 rounded-sm border px-3 py-1 font-mono text-xs ${kind === k ? "border-seal bg-seal-soft text-seal" : "border-rule text-ink-soft"}`}>
                 {k}
               </button>
             ))}
