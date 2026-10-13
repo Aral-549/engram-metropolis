@@ -10,33 +10,33 @@ const WAYFARER_URL = process.env.NEXT_PUBLIC_WAYFARER_URL ?? "http://localhost:3
 const AGENTS = [
   {
     name: "Sage",
-    role: "Personal Memory Assistant",
+    role: "Personal memory assistant",
     tag: "ERC-8004 #2068",
     colorBg: "bg-sage",
     colorPill: "bg-sage/20 text-[#126b3b] border-sage",
-    body: "Remembers your diet, stack, preferences, and personal facts. Proposes memories to your vault with owner quarantine—other apps never see them until you confirm.",
+    body: "Remembers things like your diet, tech stack and preferences. It only suggests memories, and other apps can't see a suggestion until you confirm it.",
     href: SAGE_URL,
     cta: "Launch Sage",
     isExternal: true,
   },
   {
     name: "Wayfarer",
-    role: "Trip & Dining Planner",
+    role: "Trip and dinner planner",
     tag: "ERC-8004 #2069",
     colorBg: "bg-wayfarer",
     colorPill: "bg-wayfarer/20 text-[#a34400] border-wayfarer",
-    body: "Plans itineraries and dinners without re-asking your allergies. Requests relevant context from your vault, receives only what fits, and records every read live.",
+    body: "Plans trips and dinners without asking about your allergies again. It asks your vault, gets back only what is relevant, and each read shows up live in your log.",
     href: WAYFARER_URL,
     cta: "Launch Wayfarer",
     isExternal: true,
   },
   {
     name: "Your AI Tools",
-    role: "MCP Developer Ecosystem",
+    role: "Works over MCP",
     tag: "engram-vault-mcp",
     colorBg: "bg-vault",
     colorPill: "bg-vault/20 text-vault-ink border-vault",
-    body: "Works in Claude Code, Codex, Cursor, and Gemini CLI. Your local coding assistants ask your vault tab with no keys, zero tracking, and instant one-tap revocation.",
+    body: "Works in Claude Code, Codex, Cursor and Gemini CLI. Your coding assistant asks your vault questions without ever getting a key, and you can revoke it with one tap.",
     href: "#builders",
     cta: "Explore MCP setup",
     isExternal: false,
@@ -50,11 +50,11 @@ export function AgentCards() {
       <div className="flex flex-col gap-2">
         <div className="inline-flex items-center gap-2 self-start rounded-full border-2 border-ink bg-pop px-3 py-1 font-mono text-xs font-bold text-ink shadow-[2px_2px_0_#141414]">
           <span className="h-2 w-2 rounded-full bg-ink" />
-          Autonomous Agent Identities
+          Agent identities
         </div>
         <h2 className="font-display text-3xl sm:text-4xl">Meet the agents connected to your vault</h2>
         <p className="max-w-2xl text-base font-medium text-ink-soft">
-          Each agent sees a different pairwise pseudonym. They never share a decryption key; they ask your vault, and your vault decides.
+          Each agent knows you under a different pseudonym. None of them gets a decryption key. They ask your vault, and your vault decides.
         </p>
       </div>
 

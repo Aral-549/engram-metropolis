@@ -5,39 +5,39 @@ import { LatticeDivider } from "./lattice-divider";
 
 const SPECS = [
   {
-    feature: "Decryption Keys",
-    traditional: "Shared with every agent",
-    engram: "Device WebAuthn PRF only",
+    feature: "Decryption keys",
+    traditional: "Handed to every agent",
+    engram: "Stay on your device (WebAuthn PRF)",
     status: "pass",
   },
   {
-    feature: "Read Visibility",
-    traditional: "Invisible background scraping",
-    engram: "Live real-time audit ledger",
+    feature: "Who read what",
+    traditional: "Reads you never see",
+    engram: "Every read in a live log",
     status: "pass",
   },
   {
-    feature: "Agent Writes",
-    traditional: "Direct memory poisoning",
-    engram: "Quarantined proposals",
+    feature: "Agent writes",
+    traditional: "Agents write straight in",
+    engram: "Proposals wait for you",
     status: "pass",
   },
   {
     feature: "Revocation",
-    traditional: "Key rotation fails on clones",
-    engram: "Instant one-tap kill",
+    traditional: "Rotating keys misses copies",
+    engram: "One tap, from the next prompt",
     status: "pass",
   },
   {
-    feature: "Identity Privacy",
-    traditional: "Cross-app tracking IDs",
-    engram: "Pairwise pseudonymous IDs",
+    feature: "Identity",
+    traditional: "Same ID in every app",
+    engram: "A different pseudonym per agent",
     status: "pass",
   },
   {
-    feature: "Consensus & Log",
-    traditional: "Opaque centralized cloud",
-    engram: "Monad 10,000 TPS + Envio",
+    feature: "Where it lives",
+    traditional: "A company's private server",
+    engram: "Monad, indexed by Envio",
     status: "pass",
   },
 ];
@@ -49,25 +49,25 @@ export function ArchitectureSpec() {
       <div className="flex flex-col justify-center">
         <div className="inline-flex items-center gap-2 self-start rounded-full border-2 border-ink bg-pop px-3 py-1 font-mono text-xs font-bold text-ink shadow-[2px_2px_0_#141414]">
           <span className="h-2 w-2 rounded-full bg-ink" />
-          Zero-Trust Security
+          The problem
         </div>
         <h2 className="mt-3 font-display text-3xl sm:text-4xl">Why today&apos;s shared memory is broken</h2>
         <p className="mt-4 text-base font-medium leading-relaxed text-ink-soft">
-          When other products share your memory, they give each agent your private decryption key.
-          From that moment, the agent can copy and exfiltrate everything.
+          Other products that share your memory give each agent your private decryption key.
+          Once an agent has it, it can copy all of it.
         </p>
         <p className="mt-3 text-base font-medium leading-relaxed text-ink-soft">
-          Engram removes the key from the agent completely. The agent asks questions, your vault filters the response on your device, and only the minimal relevant fact is disclosed.
+          Engram never gives the agent a key. The agent asks, your vault filters the answer on your device, and only the relevant fact goes back.
         </p>
         <div className="mt-6 rounded-xl border-[2.5px] border-ink bg-card/80 p-4 font-mono text-xs shadow-[4px_4px_0_#141414] backdrop-blur-md">
-          <span className="text-vault-ink font-bold">guarantee</span>: no agent can read your memories without an active user session and on-device vault strip approval.
+          <span className="text-vault-ink font-bold">guarantee</span>: an agent can't read your memories unless you have an active session and your on-device vault strip approves it.
         </div>
       </div>
 
       <div className="space-y-4 min-w-0 max-w-full overflow-x-auto">
         <Reveal className="glass-panel min-w-[320px] overflow-hidden rounded-2xl border-[2.5px] border-ink shadow-[6px_6px_0_#141414]">
           <div className="grid grid-cols-[1.1fr_1fr_1.1fr] items-center gap-2 sm:gap-4 border-b-2 border-ink/15 bg-paper/60 px-3 sm:px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-ink-soft">
-            <span>Security Model</span>
+            <span>Security model</span>
             <span className="text-danger-ink">Traditional</span>
             <span className="text-vault-ink">Engram Vault</span>
           </div>
