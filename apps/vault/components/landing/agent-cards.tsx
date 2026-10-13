@@ -11,7 +11,7 @@ const AGENTS = [
   {
     name: "Sage",
     role: "Personal Memory Assistant",
-    tag: "ERC-8004 #1965",
+    tag: "ERC-8004 #2068",
     colorBg: "bg-sage",
     colorPill: "bg-sage/20 text-[#126b3b] border-sage",
     body: "Remembers your diet, stack, preferences, and personal facts. Proposes memories to your vault with owner quarantine—other apps never see them until you confirm.",
@@ -22,7 +22,7 @@ const AGENTS = [
   {
     name: "Wayfarer",
     role: "Trip & Dining Planner",
-    tag: "ERC-8004 #1966",
+    tag: "ERC-8004 #2069",
     colorBg: "bg-wayfarer",
     colorPill: "bg-wayfarer/20 text-[#a34400] border-wayfarer",
     body: "Plans itineraries and dinners without re-asking your allergies. Requests relevant context from your vault, receives only what fits, and records every read live.",

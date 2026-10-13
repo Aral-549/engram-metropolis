@@ -442,3 +442,10 @@ Found by a separate adversarial pass (probes in tests/adversarial/disclosure/pro
 - **Stage/module:** agent app footer (`app/page.tsx`), `components/ReportBug.tsx` (both copies)
 - **Regression case added:** `tests/e2e/report.e2e.spec.ts` -- R1 R2 sage (fails on hydration errors); the style fix pins the dialog's own text size and alignment
 - **Status:** fixed
+
+## 2026-10-13 -- LD-1: landing agent cards showed stale hacksprint agent ids
+- **Symptom:** the live landing showed "ERC-8004 #1965" (Sage) and "#1966" (Wayfarer); the live agents are Sage #2068 and Wayfarer #2069. Found in footage captured for the promo ad.
+- **Root cause:** `apps/vault/components/landing/agent-cards.tsx` still carried the ids of the frozen hacksprint deployment.
+- **Stage/module:** vault landing, agent cards
+- **Regression case added:** `tests/golden/vault/vault.landing.golden.test.ts` -- LD-1 (cards use 2068 and 2069, never 1965 or 1966)
+- **Status:** fixed
